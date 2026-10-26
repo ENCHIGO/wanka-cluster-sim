@@ -28,7 +28,7 @@ test('405B 不切分会显存溢出', () => {
   const sc = SCENARIOS[1];
   const ev = evaluate({ ...sc.defaults, gpus: 512, tp: 1, pp: 1, gbs: 512 }, sc);
   assert.equal(ev.ok, false);
-  assert.match(ev.errors.join(), /OOM/);
+  assert.match(ev.errors.join(), /显存不够/);
 });
 
 test('TP 跨节点比节点内慢', () => {
@@ -47,4 +47,22 @@ test('卡越多，集群故障间隔越短', () => {
 
 test('loss 随 token 单调下降', () => {
   assert.ok(lossAt(70e9, 1e12) < lossAt(70e9, 1e11));
+});
+
+const WANKA = { gpu: 'B200', gpus: 10240, net: 'ib800', storage: 'fast', tp: 8, pp: 8, ep: 1, gbs: 4096, recompute: false, ckptMin: 10, spares: 16 };
+
+test('万卡的推荐配置能交，但预算吃紧', () => {
+  const sc = SCENARIOS[1];
+  const ev = evaluate(WANKA, sc);
+  assert.ok(ev.ok);
+  assert.ok(ev.etaDays < sc.deadlineDays && ev.estCost < sc.budget);
+  assert.match(ev.warnings.join(), /预算只剩/);
+});
+
+test('万卡规模下备机留少了，预估会把等维修算进去', () => {
+  const sc = SCENARIOS[1];
+  const few = evaluate({ ...WANKA, spares: 8 }, sc), enough = evaluate(WANKA, sc);
+  assert.ok(few.noSpare > 0.3 && enough.noSpare < 0.05);
+  assert.ok(few.etaDays > enough.etaDays * 1.5);
+  assert.match(few.warnings.join(), /备机不够/);
 });

@@ -34,19 +34,19 @@ export const MODELS = {
 export const SCENARIOS = [
   {
     id: 'warmup', title: '70B 基座', model: 'dense70b', tokens: 2e12, deadlineDays: 16, budget: 1.7e6, maxGpus: 4096,
-    requester: '预训练组', hall: '1 号楼 3F',
+    requester: '预训练组', hall: '1 号楼 3F', size: '70B', kind: 'Dense', level: '入门',
     brief: '新人练手的单子。卡不多，一天坏一两次，主要看并行切分和 checkpoint 间隔定得对不对。',
     defaults: { gpu: 'H100', gpus: 2048, net: 'ib400', storage: 'std', tp: 8, pp: 4, ep: 1, gbs: 1024, recompute: false, ckptMin: 60, spares: 2 },
   },
   {
-    id: 'wanka', title: '405B 万卡', model: 'dense405b', tokens: 8e12, deadlineDays: 36, budget: 40e6, maxGpus: 16384,
-    requester: '基座模型部', hall: '3 号楼 2F',
+    id: 'wanka', title: '405B 万卡', model: 'dense405b', tokens: 8e12, deadlineDays: 30, budget: 43e6, maxGpus: 16384,
+    requester: '基座模型部', hall: '3 号楼 2F', size: '405B', kind: 'Dense', level: '困难',
     brief: '一万张卡，平均四五个小时坏一台。备机留几台、checkpoint 多久存一次，决定了能不能按期交。',
     defaults: { gpu: 'H100', gpus: 10240, net: 'ib400', storage: 'std', tp: 8, pp: 16, ep: 1, gbs: 2048, recompute: false, ckptMin: 120, spares: 4 },
   },
   {
     id: 'moe', title: '671B MoE', model: 'moe671b', tokens: 15e12, deadlineDays: 20, budget: 11e6, maxGpus: 16384,
-    requester: '稀疏模型组', hall: '3 号楼 4F',
+    requester: '稀疏模型组', hall: '3 号楼 4F', size: '671B', kind: 'MoE · 激活 37B', level: '专家',
     brief: '每个 token 只激活 37B。EP 切得大，all-to-all 要走 IB；切得小，每张卡上专家太多，矩阵碎，算不动。',
     defaults: { gpu: 'H100', gpus: 10240, net: 'ib400', storage: 'std', tp: 1, pp: 16, ep: 64, gbs: 4096, recompute: false, ckptMin: 60, spares: 4 },
   },
@@ -60,8 +60,24 @@ export const GBS_OPTIONS = [256, 512, 1024, 2048, 4096, 8192];
 export const CKPT_OPTIONS = [10, 20, 30, 60, 120, 240, 480];
 
 export const RESTART_BASE_SEC = 600;      // 重新调度 + NCCL 初始化
-export const REPAIR_WAIT_SEC = 3 * 3600;  // 没有热备时原地等维修
+export const REPAIR_WAIT_SEC = 3 * 3600;  // 没有备机时原地等维修
 export const NODE_GPUS = 8;
+// 送修：坏机 12–48 小时回来，换下的慢机器 12–36 小时回来
+export const REPAIR_HOURS = [12, 48];
+export const SWAP_REPAIR_HOURS = [12, 36];
+// 过热降频：同步训练整体按 0.62 倍速跑；七成会在 2–8 小时内自己降下来
+export const STRAGGLER_SLOWDOWN = 0.62;
+export const STRAGGLER_RECOVER = { chance: 0.7, hours: [2, 8] };
+// 预估里假设玩家发现慢机器后大约 1.5 小时内处理掉
+const STRAGGLER_HANDLED_HOURS = 1.5;
+
+// 泊松分布 P(X >= k)
+function poissonTail(lambda, k) {
+  if (k <= 0) return 1;
+  let term = Math.exp(-lambda), cdf = term;
+  for (let i = 1; i < k; i++) { term *= lambda / i; cdf += term; }
+  return Math.max(0, 1 - cdf);
+}
 
 // Chinchilla 拟合 (Hoffmann et al. 2022)
 export function lossAt(activeParams, tokens) {
@@ -145,33 +161,47 @@ export function evaluate(cfg, sc) {
 
   const ckptSec = model.params * 14 / (sto.bw * 1e9) + 15;
   const restartSec = RESTART_BASE_SEC + ckptSec;
-  const failPerHour = N / gpu.mtbf + N / net.flapMtbf;
+  const hwPerHour = N / gpu.mtbf;
+  const failPerHour = hwPerHour + N / net.flapMtbf;
   const mtbfHours = 1 / failPerHour;
   const mtbfSec = mtbfHours * 3600;
   const youngMin = Math.sqrt(2 * ckptSec * mtbfSec) / 60;
   const intervalSec = cfg.ckptMin * 60;
-  const overhead = Math.min(0.95, ckptSec / intervalSec + (intervalSec / 2 + restartSec + (cfg.spares > 0 ? 0 : REPAIR_WAIT_SEC)) / mtbfSec);
+  // 备机池：送修的机器平均有多少台在路上，坏机时没备机的概率
+  const slowPerHour = N / (gpu.mtbf * 4);
+  const inRepair = hwPerHour * (REPAIR_HOURS[0] + REPAIR_HOURS[1]) / 2 + slowPerHour * (1 - STRAGGLER_RECOVER.chance) * (SWAP_REPAIR_HOURS[0] + SWAP_REPAIR_HOURS[1]) / 2;
+  const noSpare = poissonTail(inRepair, cfg.spares);
+  let sparesNeeded = 0;
+  while (poissonTail(inRepair, sparesNeeded) > 0.05) sparesNeeded++;
+  const slowLoss = Math.min(0.6, slowPerHour * STRAGGLER_HANDLED_HOURS) * (1 - STRAGGLER_SLOWDOWN);
+  const overhead = Math.min(0.95, ckptSec / intervalSec
+    + (intervalSec / 2 + restartSec) / mtbfSec
+    + hwPerHour * noSpare * REPAIR_WAIT_SEC / 3600
+    + slowLoss);
   const etaDays = sc.tokens / (rate * (1 - overhead)) / 86400;
   const costPerHour = (N + cfg.spares * NODE_GPUS) * (gpu.price + net.price) + sto.price;
   const estCost = costPerHour * etaDays * 24;
 
-  if (memGB > gpu.hbm) errors.push(`OOM：每卡要 ${memGB.toFixed(1)} GB，${gpu.id} 只有 ${gpu.hbm} GB`);
-  else if (memGB > gpu.hbm * 0.92) warnings.push(`显存只剩 ${(gpu.hbm - memGB).toFixed(1)} GB，容易 OOM`);
-  if (tp > NODE_GPUS) warnings.push(`TP${tp} 跨机了，张量并行走 IB，慢`);
-  if (model.moe && ep * tp > NODE_GPUS) warnings.push(`EP×TP=${ep * tp} 出了单机，all-to-all 走 IB`);
-  if (pp > 1 && tBubble / stepSec > 0.15) warnings.push(`气泡占 ${(tBubble / stepSec * 100).toFixed(0)}%，PP${pp} 只有 ${m.toFixed(1)} 个微批`);
-  if (tokenEff < 1) warnings.push(`批次 ${(tokensPerStep / 2 ** 20).toFixed(0)}M 超过临界批次，token 只顶 ${(tokenEff * 100).toFixed(0)}% 用`);
-  if (cfg.ckptMin > youngMin * 2) warnings.push(`存盘间隔太长，坏一次丢太多。${Math.round(youngMin)} 分钟左右合适`);
-  if (cfg.ckptMin < youngMin / 2) warnings.push(`存盘太勤，时间都在写盘。${Math.round(youngMin)} 分钟左右合适`);
-  if (cfg.spares === 0) warnings.push('不留备机，坏一台要停 3 小时等现场修');
-  if (etaDays > sc.deadlineDays) warnings.push(`要 ${etaDays.toFixed(1)} 天，超期`);
-  if (estCost > sc.budget) warnings.push(`要 $${(estCost / 1e6).toFixed(2)}M，超预算`);
+  if (memGB > gpu.hbm) errors.push(`显存不够：每卡要 ${memGB.toFixed(1)} GB，${gpu.id} 只有 ${gpu.hbm} GB。`);
+  else if (memGB > gpu.hbm * 0.92) warnings.push(`显存只剩 ${(gpu.hbm - memGB).toFixed(1)} GB 余量，碎片一多就 OOM。`);
+  if (tp > NODE_GPUS) warnings.push(`TP${tp} 跨机了，张量并行要走 IB，很慢。`);
+  if (model.moe && ep * tp > NODE_GPUS) warnings.push(`EP×TP=${ep * tp} 出了单机，all-to-all 要走 IB。`);
+  if (pp > 1 && tBubble / stepSec > 0.15) warnings.push(`气泡占了 ${(tBubble / stepSec * 100).toFixed(0)}%，PP${pp} 只分到 ${m.toFixed(1)} 个微批。`);
+  if (tokenEff < 1) warnings.push(`批次 ${(tokensPerStep / 2 ** 20).toFixed(0)}M 超过临界批次，每个 token 只顶 ${(tokenEff * 100).toFixed(0)}% 用。`);
+  if (cfg.ckptMin > youngMin * 2) warnings.push(`存盘间隔太长，坏一次丢得多。${Math.round(youngMin)} 分钟左右合适。`);
+  if (cfg.ckptMin < youngMin / 2) warnings.push(`存盘太勤，时间都花在写盘上。${Math.round(youngMin)} 分钟左右合适。`);
+  if (cfg.spares === 0) warnings.push('不留备机的话，坏一台就要停 3 小时等现场修。');
+  else if (noSpare > 0.2) warnings.push(`备机不够：平均有 ${inRepair.toFixed(1)} 台在送修，${cfg.spares} 台备机经常用光，用光了坏机就要停 3 小时。至少留 ${sparesNeeded} 台。`);
+  if (etaDays > sc.deadlineDays) warnings.push(`要 ${etaDays.toFixed(1)} 天，超期了。`);
+  if (estCost > sc.budget) warnings.push(`要 $${(estCost / 1e6).toFixed(2)}M，超预算了。`);
+  else if (estCost > sc.budget * 0.95) warnings.push(`预算只剩 $${((sc.budget - estCost) / 1e6).toFixed(2)}M 余量，坏得多一点就会超支。`);
+  if (etaDays <= sc.deadlineDays && etaDays > sc.deadlineDays * 0.92) warnings.push(`只富余 ${(sc.deadlineDays - etaDays).toFixed(1)} 天，出点状况就会超期。`);
 
   return {
     ok: errors.length === 0, errors, warnings,
     dp, m, tokensPerStep, stepSec, mfu, mem, tokenEff, rate,
     breakdown: { comp: tComp, tp: tTP, ep: tEP, bubble: tBubble, dp: tDP + tOpt },
     ckptSec, restartSec, mtbfHours, youngMin, overhead, etaDays, costPerHour, estCost,
-    failPerHour, model, gpu, net, sto,
+    failPerHour, inRepair, noSpare, sparesNeeded, model, gpu, net, sto,
   };
 }
