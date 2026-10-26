@@ -33,18 +33,21 @@ export const MODELS = {
 
 export const SCENARIOS = [
   {
-    id: 'warmup', title: '入职第一周', model: 'dense70b', tokens: 2e12, deadlineDays: 16, budget: 1.7e6, maxGpus: 4096,
-    brief: '老板要一个 70B 基座，16 天交付。集群不大，先把并行策略和 checkpoint 节奏摸清楚。',
+    id: 'warmup', title: '70B 基座', model: 'dense70b', tokens: 2e12, deadlineDays: 16, budget: 1.7e6, maxGpus: 4096,
+    requester: '预训练组', hall: '1 号楼 3F',
+    brief: '新人练手的单子。卡不多，一天坏一两次，主要看并行切分和 checkpoint 间隔定得对不对。',
     defaults: { gpu: 'H100', gpus: 2048, net: 'ib400', storage: 'std', tp: 8, pp: 4, ep: 1, gbs: 1024, recompute: false, ckptMin: 60, spares: 2 },
   },
   {
-    id: 'wanka', title: '万卡 405B', model: 'dense405b', tokens: 8e12, deadlineDays: 36, budget: 40e6, maxGpus: 16384,
-    brief: '一万张卡，平均几个小时就坏一张。算力不是瓶颈，能不能一直跑下去才是。',
+    id: 'wanka', title: '405B 万卡', model: 'dense405b', tokens: 8e12, deadlineDays: 36, budget: 40e6, maxGpus: 16384,
+    requester: '基座模型部', hall: '3 号楼 2F',
+    brief: '一万张卡，平均四五个小时坏一台。备机留几台、checkpoint 多久存一次，决定了能不能按期交。',
     defaults: { gpu: 'H100', gpus: 10240, net: 'ib400', storage: 'std', tp: 8, pp: 16, ep: 1, gbs: 2048, recompute: false, ckptMin: 120, spares: 4 },
   },
   {
-    id: 'moe', title: 'MoE 冲刺', model: 'moe671b', tokens: 15e12, deadlineDays: 20, budget: 11e6, maxGpus: 16384,
-    brief: '671B 稀疏模型，每个 token 只激活 37B，但专家之间的 all-to-all 会把网络打满。',
+    id: 'moe', title: '671B MoE', model: 'moe671b', tokens: 15e12, deadlineDays: 20, budget: 11e6, maxGpus: 16384,
+    requester: '稀疏模型组', hall: '3 号楼 4F',
+    brief: '每个 token 只激活 37B。EP 切得大，all-to-all 要走 IB；切得小，每张卡上专家太多，矩阵碎，算不动。',
     defaults: { gpu: 'H100', gpus: 10240, net: 'ib400', storage: 'std', tp: 1, pp: 16, ep: 64, gbs: 4096, recompute: false, ckptMin: 60, spares: 4 },
   },
 ];
@@ -77,15 +80,15 @@ export function evaluate(cfg, sc) {
 
   const mp = tp * pp;
   const dp = N / mp;
-  if (N > sc.maxGpus) errors.push(`本关最多只能申请 ${sc.maxGpus} 张卡`);
-  if (!Number.isInteger(dp)) errors.push(`${N} 张卡不能被 TP×PP=${mp} 整除`);
-  if (pp > model.layers) errors.push(`PP=${pp} 超过模型层数 ${model.layers}`);
+  if (N > sc.maxGpus) errors.push(`这单最多批 ${sc.maxGpus} 卡`);
+  if (!Number.isInteger(dp)) errors.push(`${N} 卡除不尽 TP×PP=${mp}`);
+  if (pp > model.layers) errors.push(`PP${pp} 比层数 ${model.layers} 还多`);
   if (model.moe) {
-    if (Number.isInteger(dp) && dp % ep) errors.push(`EP=${ep} 必须整除 DP=${dp}`);
-    if (model.experts % ep) errors.push(`EP=${ep} 必须整除专家数 ${model.experts}`);
+    if (Number.isInteger(dp) && dp % ep) errors.push(`EP${ep} 除不尽 DP${dp}`);
+    if (model.experts % ep) errors.push(`EP${ep} 除不尽 ${model.experts} 个专家`);
   }
   const m = cfg.gbs / dp;
-  if (Number.isInteger(dp) && m < 1) errors.push(`DP=${dp} 大于全局批次 ${cfg.gbs}，每个副本分不到一条样本`);
+  if (Number.isInteger(dp) && m < 1) errors.push(`DP${dp} 比全局批次 ${cfg.gbs} 条还大，有的副本分不到样本`);
   if (errors.length) return { ok: false, errors, warnings };
 
   const tokensPerStep = cfg.gbs * SEQ_LEN;
@@ -152,17 +155,17 @@ export function evaluate(cfg, sc) {
   const costPerHour = (N + cfg.spares * NODE_GPUS) * (gpu.price + net.price) + sto.price;
   const estCost = costPerHour * etaDays * 24;
 
-  if (memGB > gpu.hbm) errors.push(`显存溢出：每卡需要 ${memGB.toFixed(1)} GB，${gpu.id} 只有 ${gpu.hbm} GB`);
-  else if (memGB > gpu.hbm * 0.92) warnings.push(`显存只剩 ${(gpu.hbm - memGB).toFixed(1)} GB 余量，碎片一多就会 OOM`);
-  if (tp > NODE_GPUS) warnings.push(`TP=${tp} 跨节点了，张量并行的通信走网卡，非常慢`);
-  if (model.moe && ep * tp > NODE_GPUS) warnings.push(`EP×TP=${ep * tp} 超出单节点，all-to-all 走网卡`);
-  if (pp > 1 && tBubble / stepSec > 0.15) warnings.push(`流水线气泡占步时 ${(tBubble / stepSec * 100).toFixed(0)}%：微批次数 ${m.toFixed(1)} 相对 PP=${pp} 太少`);
-  if (tokenEff < 1) warnings.push(`全局批次 ${(tokensPerStep / 2 ** 20).toFixed(0)}M token 超过临界批次，token 利用率降到 ${(tokenEff * 100).toFixed(0)}%`);
-  if (cfg.ckptMin > youngMin * 2) warnings.push(`checkpoint 间隔偏长，故障时丢的进度多（建议约 ${Math.round(youngMin)} 分钟）`);
-  if (cfg.ckptMin < youngMin / 2) warnings.push(`checkpoint 太频繁，写盘时间浪费多（建议约 ${Math.round(youngMin)} 分钟）`);
-  if (cfg.spares === 0) warnings.push('没有热备节点：坏一台就得原地等维修，约 3 小时');
-  if (etaDays > sc.deadlineDays) warnings.push(`预计 ${etaDays.toFixed(1)} 天完成，超过 ${sc.deadlineDays} 天的期限`);
-  if (estCost > sc.budget) warnings.push(`预计花费 $${(estCost / 1e6).toFixed(2)}M，超出预算`);
+  if (memGB > gpu.hbm) errors.push(`OOM：每卡要 ${memGB.toFixed(1)} GB，${gpu.id} 只有 ${gpu.hbm} GB`);
+  else if (memGB > gpu.hbm * 0.92) warnings.push(`显存只剩 ${(gpu.hbm - memGB).toFixed(1)} GB，容易 OOM`);
+  if (tp > NODE_GPUS) warnings.push(`TP${tp} 跨机了，张量并行走 IB，慢`);
+  if (model.moe && ep * tp > NODE_GPUS) warnings.push(`EP×TP=${ep * tp} 出了单机，all-to-all 走 IB`);
+  if (pp > 1 && tBubble / stepSec > 0.15) warnings.push(`气泡占 ${(tBubble / stepSec * 100).toFixed(0)}%，PP${pp} 只有 ${m.toFixed(1)} 个微批`);
+  if (tokenEff < 1) warnings.push(`批次 ${(tokensPerStep / 2 ** 20).toFixed(0)}M 超过临界批次，token 只顶 ${(tokenEff * 100).toFixed(0)}% 用`);
+  if (cfg.ckptMin > youngMin * 2) warnings.push(`存盘间隔太长，坏一次丢太多。${Math.round(youngMin)} 分钟左右合适`);
+  if (cfg.ckptMin < youngMin / 2) warnings.push(`存盘太勤，时间都在写盘。${Math.round(youngMin)} 分钟左右合适`);
+  if (cfg.spares === 0) warnings.push('不留备机，坏一台要停 3 小时等现场修');
+  if (etaDays > sc.deadlineDays) warnings.push(`要 ${etaDays.toFixed(1)} 天，超期`);
+  if (estCost > sc.budget) warnings.push(`要 $${(estCost / 1e6).toFixed(2)}M，超预算`);
 
   return {
     ok: errors.length === 0, errors, warnings,

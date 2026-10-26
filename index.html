@@ -3,275 +3,306 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Saira+Condensed:wght@500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;900&family=Noto+Sans+SC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&family=Long+Cang&display=swap">
 <style>
-/* Layout: 机房值班台。左边是整面 GPU 墙，右边是值班面板；开局前同一块区域是配置台 */
+/* Layout: 一张机房工单纸。开局是算力申请单，开跑后左边是印出来的机房平面图，右边是值班记录本，结束时是验收单。
+   只做一种纸面效果，不跟随深色模式。 */
 :root {
-  --bg: #0e1519;
-  --panel: #141f25;
-  --raise: #1a2830;
-  --line: #24363f;
-  --fg: #d9e5e7;
-  --muted: #8299a0;
-  --accent: #f0a640;
-  --accent-ink: #1d1206;
-  --ok: #3fb7a0;
-  --ckpt: #6a9cf5;
-  --warn: #f0a640;
-  --bad: #ec5a5f;
-  --idle: #34474f;
-  --f-display: "Saira Condensed", "Noto Sans SC", "PingFang SC", sans-serif;
-  --f-body: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
-  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
-  color-scheme: dark;
+  --paper: #edf1e8;      /* 浅绿账页纸 */
+  --field: #f8faf5;      /* 填写栏 */
+  --rule: #9fb2a0;       /* 表格线 */
+  --rule-soft: #c9d6c6;
+  --ink: #1c2848;        /* 蓝黑墨水 */
+  --ink-2: #56617a;
+  --red: #bf2a2e;        /* 印泥 / 批注 */
+  --blue: #2b58a6;       /* 存盘 */
+  --hl: #efcd38;         /* 荧光笔 */
+  --green: #2e6a3b;
+  --umber: #8a5a00;
+  --f-title: "Noto Serif SC", "Songti SC", "SimSun", serif;
+  --f-body: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --f-hand: "Long Cang", "Kaiti SC", "KaiTi", cursive;
+  color-scheme: light;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-html, body { background: var(--bg); color: var(--fg); }
-body { font-family: var(--f-body); font-size: 14px; line-height: 1.55; }
+html, body { background: var(--paper); color: var(--ink); }
+body { font-family: var(--f-body); font-size: 14px; line-height: 1.6; }
 button, select, input { font: inherit; color: inherit; }
-.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.mono, .num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 
-.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 16px 40px; display: grid; gap: 16px; }
+.wrap { max-width: 1280px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 48px; display: grid; gap: 22px; }
 
-/* 顶栏 */
-.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; padding-block: 4px 12px; border-bottom: 1px solid var(--line); }
-.brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
-.brand h1 { margin: 0; font-family: var(--f-display); font-weight: 700; font-size: 30px; letter-spacing: 0.02em; line-height: 1; }
-.brand h1 b { color: var(--accent); font-weight: 700; }
-.brand span { color: var(--muted); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; font-family: var(--f-mono); }
-.meter { display: grid; gap: 2px; min-width: 120px; }
-.meter label { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; }
-.meter .v { font-family: var(--f-mono); font-size: 18px; font-variant-numeric: tabular-nums; }
-.meter .bar { height: 3px; background: var(--line); border-radius: 2px; overflow: hidden; }
-.meter .bar i { display: block; height: 100%; width: 0; background: var(--ok); }
-.meter.money .bar i { background: var(--accent); }
-.meter.time .bar i { background: var(--ckpt); }
+/* 抬头 */
+.mast { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 28px; padding-bottom: 14px; border-bottom: 3px double var(--ink); }
+.logo { display: flex; align-items: center; gap: 12px; margin-right: auto; }
+.seal { width: 46px; height: 46px; border: 2.5px solid var(--red); color: var(--red); border-radius: 4px; display: grid; grid-template-columns: 1fr 1fr; place-items: center; font-family: var(--f-title); font-weight: 900; font-size: 17px; line-height: 1; padding: 3px; transform: rotate(-4deg); }
+.logo-name { font-family: var(--f-title); font-weight: 900; font-size: 26px; letter-spacing: 0.06em; line-height: 1.1; }
+.logo-sub { font-size: 12px; color: var(--ink-2); letter-spacing: 0.04em; }
+.tally { display: flex; flex-wrap: wrap; gap: 0; border: 1px solid var(--ink); }
+.tally > div { padding: 4px 12px 5px; border-right: 1px solid var(--rule); min-width: 130px; }
+.tally > div:last-child { border-right: 0; }
+.tally dt { font-size: 11px; color: var(--ink-2); }
+.tally dd { margin: 0; font-family: var(--f-mono); font-size: 15px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tally .fill { height: 2px; background: var(--rule-soft); margin-top: 2px; }
+.tally .fill i { display: block; height: 100%; width: 0; background: var(--ink); }
 
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 16px; min-width: 0; }
-.card h2 { margin: 0 0 12px; font-family: var(--f-display); font-weight: 500; font-size: 15px; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; }
-.card h2 small { font-family: var(--f-body); letter-spacing: 0; text-transform: none; margin-left: 6px; }
+/* 单据 */
+.sheet { background: var(--field); border: 1.5px solid var(--ink); padding: 18px 20px 22px; min-width: 0; position: relative; }
+.sheet-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 16px; margin-bottom: 14px; }
+.sheet-head h1 { margin: 0; font-family: var(--f-title); font-weight: 900; font-size: 24px; letter-spacing: 0.18em; }
+.formno { font-family: var(--f-mono); font-size: 12px; color: var(--ink-2); }
+h2.sec { margin: 18px 0 0; font-family: var(--f-title); font-weight: 600; font-size: 15px; letter-spacing: 0.06em; padding-bottom: 4px; border-bottom: 1.5px solid var(--ink); display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+h2.sec small { font-family: var(--f-body); font-weight: 400; font-size: 12px; color: var(--ink-2); letter-spacing: 0; }
 
-/* 配置台 */
-#setup { display: grid; grid-template-columns: 280px minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
-.levels { display: grid; gap: 10px; }
-.level { text-align: left; background: var(--raise); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; cursor: pointer; display: grid; gap: 4px; }
-.level:hover { border-color: var(--muted); }
-.level[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
-.level .t { font-weight: 700; font-size: 15px; }
-.level .s { color: var(--muted); font-size: 12px; font-family: var(--f-mono); }
-.brief { color: var(--fg); margin: 12px 0 0; font-size: 13px; }
+/* 表格行：栏目 | 填写 | 说明 */
+.rows { display: grid; }
+.row { display: grid; grid-template-columns: 8.5em minmax(0, 1fr) minmax(0, 1.1fr); border-bottom: 1px solid var(--rule); min-height: 40px; }
+.row > * { padding: 7px 10px; min-width: 0; }
+.row > .k { border-right: 1px solid var(--rule); font-size: 13px; color: var(--ink-2); display: flex; align-items: center; }
+.row > .v { border-right: 1px solid var(--rule-soft); display: flex; align-items: center; }
+.row > .n { font-size: 12px; color: var(--ink-2); display: flex; align-items: center; }
+.row.wide { grid-template-columns: 8.5em minmax(0, 1fr); }
+.row.wide > .v { border-right: 0; }
+.row select, .row input[type="number"] { width: 100%; background: transparent; border: 0; border-bottom: 1px dashed var(--ink-2); padding: 3px 2px; font-family: var(--f-mono); font-size: 14px; color: var(--ink); border-radius: 0; }
+.row select:hover, .row input[type="number"]:hover { background: var(--paper); }
+.check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.check input { appearance: none; width: 15px; height: 15px; border: 1.5px solid var(--ink); margin: 0; display: grid; place-items: center; cursor: pointer; background: var(--field); }
+.check input:checked::after { content: "✓"; font-family: var(--f-hand); font-size: 20px; line-height: 0; color: var(--ink); transform: translate(2px, -2px); }
+.tasks { display: flex; flex-wrap: wrap; gap: 6px 22px; }
 
-.form { display: grid; gap: 18px; }
-.group { display: grid; gap: 10px; }
-.group > h3 { margin: 0; font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: 0.1em; }
-.fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px 14px; }
-.field { display: grid; gap: 4px; }
-.field label { font-size: 12px; color: var(--muted); }
-.field select, .field input[type="number"] { background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 7px 8px; font-family: var(--f-mono); font-size: 13px; width: 100%; }
-.field .hint { font-size: 11px; color: var(--muted); }
-.toggle { display: flex; align-items: center; gap: 8px; padding-top: 6px; }
-.toggle input { accent-color: var(--accent); width: 16px; height: 16px; }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#setup { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 0 34px; }
+#setup .sheet-head, #setup .task-rows { grid-column: 1 / -1; }
+.brief { font-size: 13px; }
 
-.forecast { display: grid; gap: 14px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); }
-.kv { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; font-size: 13px; }
-.kv dt { color: var(--muted); }
-.kv dd { margin: 0; text-align: right; font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
-.kv dd.good { color: var(--ok); } .kv dd.bad { color: var(--bad); } .kv dd.warn { color: var(--warn); }
-.stack { display: flex; height: 14px; border-radius: 3px; overflow: hidden; background: var(--bg); }
-.stack i { display: block; height: 100%; }
-.legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11px; color: var(--muted); }
-.legend span::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; background: var(--c); vertical-align: 0; }
-.notes { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 12px; }
-.notes li { padding: 6px 8px 6px 10px; border-radius: 4px; background: var(--raise); border-left: 3px solid var(--warn); }
-.notes li.err { border-left-color: var(--bad); color: var(--fg); }
-.notes li.fine { border-left-color: var(--ok); }
+/* 评估 */
+.kv { display: grid; grid-template-columns: 1fr auto; margin: 0; }
+.kv dt, .kv dd { padding: 6px 2px; border-bottom: 1px solid var(--rule-soft); margin: 0; }
+.kv dt { color: var(--ink-2); font-size: 13px; }
+.kv dd { text-align: right; font-family: var(--f-mono); font-variant-numeric: tabular-nums; font-size: 13px; }
+.kv dd.over { color: var(--red); text-decoration: underline wavy var(--red); text-underline-offset: 3px; }
+.kv dd.fine { color: var(--green); }
+.strip { margin-top: 10px; }
+.strip-head { display: flex; justify-content: space-between; font-size: 12px; color: var(--ink-2); }
+.bar { display: flex; height: 16px; border: 1px solid var(--ink); background: var(--field); margin-top: 3px; }
+.bar i { display: block; height: 100%; border-right: 1px solid var(--ink); }
+.bar i:last-child { border-right: 0; }
+.bar.mem { position: relative; }
+.key { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 11px; color: var(--ink-2); margin-top: 4px; }
+.key span::before { content: ""; display: inline-block; width: 9px; height: 9px; border: 1px solid var(--ink); margin-right: 4px; vertical-align: -1px; background: var(--c); }
+/* 填充纹理：实心、斜线、点 */
+.p-solid { background: var(--ink); }
+.p-hatch { background: repeating-linear-gradient(135deg, var(--ink) 0 1.5px, transparent 1.5px 5px); }
+.p-cross { background: repeating-linear-gradient(45deg, var(--ink-2) 0 1px, transparent 1px 4px), repeating-linear-gradient(135deg, var(--ink-2) 0 1px, transparent 1px 4px); }
+.p-hl { background: var(--hl); }
+.p-blue { background: var(--blue); }
+.p-dot { background: radial-gradient(var(--ink-2) 1px, transparent 1.3px) 0 0 / 4px 4px; }
+.key .k-hatch::before { background: repeating-linear-gradient(135deg, var(--ink) 0 1.5px, transparent 1.5px 4px); }
+.key .k-cross::before { background: repeating-linear-gradient(45deg, var(--ink-2) 0 1px, transparent 1px 3px), repeating-linear-gradient(135deg, var(--ink-2) 0 1px, transparent 1px 3px); }
+.key .k-dot::before { background: radial-gradient(var(--ink-2) 1px, transparent 1.3px) 0 0 / 3px 3px; }
 
-.btn { background: var(--raise); border: 1px solid var(--line); border-radius: 4px; padding: 7px 12px; cursor: pointer; white-space: nowrap; }
-.btn:hover:not(:disabled) { border-color: var(--muted); }
-.btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
-.btn.big { font-size: 16px; padding: 11px 18px; width: 100%; }
-.btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+/* 审批 */
+.remarks { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 2px; font-family: var(--f-hand); color: var(--red); font-size: 21px; line-height: 1.35; }
+.remarks li { padding-left: 1.1em; text-indent: -1.1em; }
+.remarks li::before { content: "批："; font-size: 16px; }
+.remarks li.ok { color: var(--green); }
+.remarks li.ok::before { content: ""; }
+.approve { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-top: 16px; flex-wrap: wrap; }
+.stamp { display: inline-grid; place-items: center; border: 3px double var(--red); color: var(--red); font-family: var(--f-title); font-weight: 900; font-size: 26px; letter-spacing: 0.25em; padding: 4px 6px 4px 14px; transform: rotate(-9deg); opacity: 0.88; mix-blend-mode: multiply; }
+.stamp.pending { color: var(--umber); border-color: var(--umber); }
+.stamp.ok { color: var(--red); }
+.submit { background: var(--ink); color: var(--field); border: 0; padding: 11px 22px; font-family: var(--f-title); font-weight: 600; font-size: 16px; letter-spacing: 0.1em; cursor: pointer; }
+.submit:hover:not(:disabled) { background: #2a3a66; }
+.submit:disabled { background: var(--rule); cursor: not-allowed; }
+.linkbtn { background: none; border: 0; border-bottom: 1px solid var(--ink-2); padding: 2px 0; cursor: pointer; color: var(--ink-2); font-size: 13px; }
 
-/* 值班台 */
-#ops { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; align-items: start; }
-.wall { display: grid; gap: 10px; }
-.wall-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; }
-.phase { font-family: var(--f-display); font-size: 22px; font-weight: 700; letter-spacing: 0.04em; }
-.phase.run { color: var(--ok); } .phase.ckpt { color: var(--ckpt); } .phase.restart, .phase.repair { color: var(--bad); } .phase.paused { color: var(--muted); }
-#grid { width: 100%; display: block; cursor: crosshair; border-radius: 3px; }
-.tip { font-size: 12px; color: var(--muted); min-height: 1.6em; }
-.pool { display: flex; flex-wrap: wrap; gap: 16px; font-size: 12px; color: var(--muted); align-items: center; }
-.pool .chips { display: inline-flex; gap: 3px; vertical-align: middle; margin-left: 6px; }
-.pool .chips i { width: 10px; height: 10px; border-radius: 2px; background: var(--ok); opacity: 0.55; }
-.pool .chips.rep i { background: var(--bad); opacity: 0.6; }
+/* 值班 */
+#ops { display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 22px; align-items: start; }
+.statusline { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; margin-bottom: 12px; }
+.state { font-family: var(--f-title); font-weight: 900; font-size: 30px; letter-spacing: 0.08em; line-height: 1.1; }
+.state.run { color: var(--ink); } .state.ckpt { color: var(--blue); } .state.restart, .state.repair { color: var(--red); } .state.paused { color: var(--ink-2); }
+.state-sub { font-family: var(--f-mono); font-size: 13px; color: var(--ink-2); }
+.plan-box { overflow-x: auto; }
+#grid { display: block; cursor: crosshair; }
+.tip { font-size: 12px; color: var(--ink-2); min-height: 1.7em; margin-top: 6px; font-family: var(--f-mono); }
+.pool { display: flex; flex-wrap: wrap; gap: 6px 22px; font-size: 13px; margin-top: 4px; }
+.pool .boxes { display: inline-flex; gap: 3px; margin-left: 8px; vertical-align: -1px; }
+.pool .boxes i { width: 11px; height: 11px; border: 1px solid var(--ink); }
+.pool .boxes.spare i { background: var(--field); }
+.pool .boxes.rma i { background: repeating-linear-gradient(135deg, var(--red) 0 1.5px, transparent 1.5px 4px); border-color: var(--red); }
 
-.side { display: grid; gap: 16px; }
-.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.controls .sep { flex-basis: 100%; height: 0; }
-.speed { display: inline-flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
-.speed button { background: none; border: 0; border-right: 1px solid var(--line); padding: 6px 10px; cursor: pointer; font-family: var(--f-mono); font-size: 12px; }
+.duty { display: grid; gap: 0; }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tbtn { background: var(--field); border: 1px solid var(--ink); padding: 5px 11px; cursor: pointer; font-size: 13px; }
+.tbtn:hover:not(:disabled) { background: var(--paper); }
+.tbtn:disabled { color: var(--rule); border-color: var(--rule); cursor: not-allowed; }
+.tbtn.main { background: var(--ink); color: var(--field); min-width: 5em; }
+.speed { display: inline-flex; border: 1px solid var(--ink); }
+.speed button { background: var(--field); border: 0; border-right: 1px solid var(--ink); padding: 5px 9px; cursor: pointer; font-family: var(--f-mono); font-size: 12px; }
 .speed button:last-child { border-right: 0; }
-.speed button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
-.chart { width: 100%; height: 120px; display: block; }
-.event { border: 1px solid var(--warn); background: var(--raise); border-radius: 6px; padding: 12px 14px; display: grid; gap: 8px; }
-.event p { margin: 0; }
-.event .acts { display: flex; flex-wrap: wrap; gap: 8px; }
-.log { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow-y: auto; display: grid; gap: 2px; font-size: 12px; }
-.log li { display: grid; grid-template-columns: 74px 1fr; gap: 8px; padding: 3px 0; border-bottom: 1px solid var(--line); }
-.log time { font-family: var(--f-mono); color: var(--muted); }
-.log li.bad span { color: var(--bad); } .log li.warn span { color: var(--warn); } .log li.good span { color: var(--ok); } .log li.info span { color: var(--fg); }
+.speed button[aria-pressed="true"] { background: var(--ink); color: var(--field); }
+.inline-field { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); margin-top: 10px; }
+.inline-field select { background: transparent; border: 0; border-bottom: 1px dashed var(--ink-2); font-family: var(--f-mono); color: var(--ink); padding: 2px; }
+.chart { width: 100%; height: 118px; display: block; margin-top: 6px; }
+.ask { border: 1.5px solid var(--red); padding: 12px 14px; margin-top: 14px; display: grid; gap: 8px; background: var(--field); }
+.ask-title { font-family: var(--f-title); font-weight: 900; color: var(--red); letter-spacing: 0.1em; }
+.ask p { margin: 0; font-size: 13px; }
+.ask .opts { display: grid; gap: 8px; }
+.ask .opt { text-align: left; background: var(--field); border: 1px solid var(--ink); padding: 8px 10px; cursor: pointer; display: grid; gap: 2px; }
+.ask .opt:hover { background: var(--paper); }
+.ask .opt b { font-weight: 700; }
+.ask .opt span { font-size: 12px; color: var(--ink-2); }
+.log { list-style: none; margin: 6px 0 0; padding: 0; max-height: 300px; overflow-y: auto; font-size: 13px; }
+.log li { display: grid; grid-template-columns: 78px 1fr; gap: 8px; padding: 4px 0 4px 4px; line-height: 20px; border-bottom: 1px solid var(--rule-soft); }
+.log time { font-family: var(--f-mono); font-size: 12px; color: var(--ink-2); border-right: 1px solid var(--red); padding-right: 6px; }
+.log li.bad span { color: var(--red); } .log li.warn span { color: var(--umber); } .log li.good span { color: var(--green); }
 
-/* 结算 */
-.shade { position: fixed; inset: 0; background: color-mix(in srgb, var(--bg) 80%, transparent); display: grid; place-items: center; padding: max(16px, env(safe-area-inset-left, 0px)); z-index: 20; }
-.result { width: min(480px, 100%); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 24px; display: grid; gap: 14px; }
-.result h2 { margin: 0; font-family: var(--f-display); font-size: 34px; line-height: 1.1; text-wrap: balance; }
-.result h2.win { color: var(--ok); } .result h2.lose { color: var(--bad); }
-.stars { font-size: 28px; letter-spacing: 6px; color: var(--accent); }
-.stars s { color: var(--line); text-decoration: none; }
-.result .acts { display: flex; gap: 10px; flex-wrap: wrap; }
+/* 验收单 */
+.shade { position: fixed; inset: 0; background: rgba(28, 40, 72, 0.28); display: grid; place-items: center; padding: 16px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px)); z-index: 20; overflow-y: auto; }
+.accept { width: min(500px, 100%); }
+.accept .stamp { position: absolute; right: 24px; top: 64px; font-size: 30px; }
+.grade { font-family: var(--f-title); font-weight: 900; font-size: 46px; line-height: 1; }
+.grade-row { display: flex; align-items: baseline; gap: 12px; margin: 4px 0 10px; }
+.grade-row span { font-size: 13px; color: var(--ink-2); }
+.acts { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 16px; align-items: center; }
 
-@media (max-width: 1100px) {
-  #setup { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  #setup .levels-card { grid-column: 1 / -1; }
-  .levels { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+@media (max-width: 1060px) {
+  #setup { grid-template-columns: minmax(0, 1fr); }
   #ops { grid-template-columns: minmax(0, 1fr); }
 }
-@media (max-width: 720px) {
-  #setup { grid-template-columns: minmax(0, 1fr); }
-  .forecast { position: static; }
-  .meter { min-width: 0; flex: 1 1 40%; }
+@media (max-width: 600px) {
+  .row { grid-template-columns: 6.5em minmax(0, 1fr); }
+  .row > .v { border-right: 0; }
+  .row > .n { grid-column: 1 / -1; border-top: 1px dotted var(--rule-soft); padding-top: 3px; padding-bottom: 6px; }
+  .row > .n:empty { display: none; }
+  .tally > div { min-width: 0; flex: 1 1 33%; padding-inline: 8px; }
+  .tally dd { font-size: 12px; }
+  .sheet { padding: 14px 12px 18px; }
+  .sheet-head h1 { font-size: 20px; letter-spacing: 0.1em; }
+  .accept .stamp { position: static; justify-self: start; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 
 <div class="wrap">
-  <header class="top">
-    <div class="brand"><h1>万卡<b>集群</b>模拟器</h1><span id="tagline">GPU cluster ops</span></div>
-    <div class="meter time"><label>训练时间 / 期限</label><div class="v" id="mTime">—</div><div class="bar"><i id="bTime"></i></div></div>
-    <div class="meter money"><label>花费 / 预算</label><div class="v" id="mCost">—</div><div class="bar"><i id="bCost"></i></div></div>
-    <div class="meter"><label>有效 token / 目标</label><div class="v" id="mTok">—</div><div class="bar"><i id="bTok"></i></div></div>
+  <header class="mast">
+    <div class="logo">
+      <div class="seal" aria-hidden="true"><span>万</span><span>卡</span><span>集</span><span>群</span></div>
+      <div><div class="logo-name">万卡集群模拟器</div><div class="logo-sub">大模型训练值班</div></div>
+    </div>
+    <dl class="tally">
+      <div><dt>已用 / 期限</dt><dd id="mTime">—</dd><div class="fill"><i id="bTime"></i></div></div>
+      <div><dt>已花 / 预算</dt><dd id="mCost">—</dd><div class="fill"><i id="bCost"></i></div></div>
+      <div><dt>已训 / 目标</dt><dd id="mTok">—</dd><div class="fill"><i id="bTok"></i></div></div>
+    </dl>
   </header>
 
-  <section id="setup" aria-label="开局配置">
-    <div class="card levels-card">
-      <h2>关卡</h2>
-      <div class="levels" id="levels"></div>
-      <p class="brief" id="brief"></p>
+  <!-- 申请单 -->
+  <section id="setup" class="sheet" aria-label="算力资源申请单">
+    <div class="sheet-head"><h1>算力资源申请单</h1><span class="formno" id="formNo"></span></div>
+    <div class="rows task-rows" style="border-top:1.5px solid var(--ink)">
+      <div class="row wide"><div class="k">任务</div><div class="v"><div class="tasks" id="levels" role="radiogroup" aria-label="任务"></div></div></div>
+      <div class="row"><div class="k">需求方</div><div class="v" id="req"></div><div class="n" id="deliv"></div></div>
+      <div class="row"><div class="k">期限 / 预算</div><div class="v num" id="limits"></div><div class="n" id="maxCards"></div></div>
+      <div class="row wide"><div class="k">说明</div><div class="v brief" id="brief"></div></div>
     </div>
 
-    <div class="card">
-      <h2>集群与训练配置 <small id="modelName"></small></h2>
-      <div class="form">
-        <div class="group">
-          <h3>硬件</h3>
-          <div class="fields">
-            <div class="field"><label for="fGpu">GPU 型号</label><select id="fGpu"></select><span class="hint" id="hGpu"></span></div>
-            <div class="field"><label for="fGpus">卡数</label><select id="fGpus"></select><span class="hint" id="hGpus"></span></div>
-            <div class="field"><label for="fNet">节点间网络</label><select id="fNet"></select><span class="hint" id="hNet"></span></div>
-            <div class="field"><label for="fStorage">checkpoint 存储</label><select id="fStorage"></select><span class="hint" id="hStorage"></span></div>
-          </div>
-        </div>
-        <div class="group">
-          <h3>并行策略</h3>
-          <div class="fields">
-            <div class="field"><label for="fTp">张量并行 TP</label><select id="fTp"></select><span class="hint">≤8 走 NVLink</span></div>
-            <div class="field"><label for="fPp">流水线并行 PP</label><select id="fPp"></select><span class="hint">切层，会有气泡</span></div>
-            <div class="field" id="epField"><label for="fEp">专家并行 EP</label><select id="fEp"></select><span class="hint">专家分到多少张卡</span></div>
-            <div class="field"><label for="fGbs">全局批次（条 × 4096）</label><select id="fGbs"></select><span class="hint" id="hGbs"></span></div>
-            <div class="field"><label class="toggle" for="fRecompute"><input type="checkbox" id="fRecompute"> 激活重计算</label><span class="hint">省显存，多算三分之一</span></div>
-          </div>
-        </div>
-        <div class="group">
-          <h3>容错</h3>
-          <div class="fields">
-            <div class="field"><label for="fCkpt">checkpoint 间隔</label><select id="fCkpt"></select><span class="hint" id="hCkpt"></span></div>
-            <div class="field"><label for="fSpares">热备节点（每台 8 卡）</label><input type="number" id="fSpares" min="0" max="64" step="1"><span class="hint">闲置也计费</span></div>
-          </div>
-        </div>
+    <div>
+      <h2 class="sec">一、硬件</h2>
+      <div class="rows">
+        <div class="row"><label class="k" for="fGpu">GPU</label><div class="v"><select id="fGpu"></select></div><div class="n" id="hGpu"></div></div>
+        <div class="row"><label class="k" for="fGpus">卡数</label><div class="v"><select id="fGpus"></select></div><div class="n" id="hGpus"></div></div>
+        <div class="row"><label class="k" for="fNet">机间网络</label><div class="v"><select id="fNet"></select></div><div class="n" id="hNet"></div></div>
+        <div class="row"><label class="k" for="fStorage">存储</label><div class="v"><select id="fStorage"></select></div><div class="n" id="hStorage"></div></div>
+      </div>
+      <h2 class="sec">二、并行切分</h2>
+      <div class="rows">
+        <div class="row"><label class="k" for="fTp">TP 张量并行</label><div class="v"><select id="fTp"></select></div><div class="n">8 以内走机内 NVLink</div></div>
+        <div class="row"><label class="k" for="fPp">PP 流水线</label><div class="v"><select id="fPp"></select></div><div class="n">按层切，微批少了气泡大</div></div>
+        <div class="row" id="epRow"><label class="k" for="fEp">EP 专家并行</label><div class="v"><select id="fEp"></select></div><div class="n">256 个专家分到几张卡</div></div>
+        <div class="row"><label class="k" for="fGbs">全局批次</label><div class="v"><select id="fGbs"></select></div><div class="n" id="hGbs"></div></div>
+        <div class="row"><div class="k">重计算</div><div class="v"><label class="check" for="fRecompute"><input type="checkbox" id="fRecompute"> 开启</label></div><div class="n">激活省很多，算力多花 1/3</div></div>
+      </div>
+      <h2 class="sec">三、容错</h2>
+      <div class="rows">
+        <div class="row"><label class="k" for="fCkpt">存盘间隔</label><div class="v"><select id="fCkpt"></select></div><div class="n" id="hCkpt"></div></div>
+        <div class="row"><label class="k" for="fSpares">备机</label><div class="v"><input type="number" id="fSpares" min="0" max="64" step="1"></div><div class="n">每台 8 卡，闲着也计费</div></div>
       </div>
     </div>
 
-    <div class="forecast">
-      <div class="card">
-        <h2>开跑前预估</h2>
-        <dl class="kv" id="fcKv"></dl>
+    <div>
+      <h2 class="sec">四、资源核算 <small>按上面的填写自动计算</small></h2>
+      <dl class="kv" id="fcKv"></dl>
+      <div class="strip">
+        <div class="strip-head"><span>每步耗时</span><span class="num" id="stepTotal"></span></div>
+        <div class="bar" id="stepBar"></div>
+        <div class="key"><span style="--c:var(--ink)">计算</span><span class="k-hatch">TP 通信</span><span class="k-cross">EP all-to-all</span><span style="--c:var(--hl)">流水线气泡</span><span style="--c:var(--blue)">梯度同步</span></div>
       </div>
-      <div class="card">
-        <h2>单步时间拆解 <small class="num" id="stepTotal"></small></h2>
-        <div class="stack" id="stepStack"></div>
-        <div class="legend" style="margin-top:8px">
-          <span style="--c:var(--ok)">计算</span><span style="--c:#9fd3c7">TP 通信</span><span style="--c:#c792ea">EP all-to-all</span><span style="--c:var(--warn)">流水线气泡</span><span style="--c:var(--ckpt)">DP 梯度同步</span>
-        </div>
-        <h2 style="margin-top:16px">每卡显存 <small class="num" id="memTotal"></small></h2>
-        <div class="stack" id="memStack"></div>
-        <div class="legend" style="margin-top:8px">
-          <span style="--c:var(--ok)">权重+梯度</span><span style="--c:var(--ckpt)">优化器</span><span style="--c:var(--warn)">激活</span><span style="--c:var(--muted)">其他</span>
-        </div>
+      <div class="strip">
+        <div class="strip-head"><span>每卡显存</span><span class="num" id="memTotal"></span></div>
+        <div class="bar mem" id="memBar"></div>
+        <div class="key"><span style="--c:var(--ink)">权重+梯度</span><span style="--c:var(--blue)">优化器</span><span style="--c:var(--hl)">激活</span><span class="k-dot">其他</span></div>
       </div>
-      <div class="card">
-        <ul class="notes" id="notes"></ul>
-        <div style="margin-top:14px;display:grid;gap:8px"><button class="btn primary big" id="startBtn">开始训练</button><button class="btn" id="cancelBtn" hidden>不改了，回值班台</button></div>
+
+      <h2 class="sec">五、审批意见</h2>
+      <ul class="remarks" id="remarks"></ul>
+      <div class="approve">
+        <span class="stamp" id="stamp">同意</span>
+        <div style="display:grid;gap:8px;justify-items:end">
+          <button class="submit" id="startBtn">提交，开始训练</button>
+          <button class="linkbtn" id="cancelBtn" hidden>不改了，回去值班</button>
+        </div>
       </div>
     </div>
   </section>
 
-  <section id="ops" aria-label="训练值班" hidden>
-    <div class="card wall">
-      <div class="wall-head">
-        <div class="phase run" id="phase">训练中</div>
-        <div class="num" style="color:var(--muted);font-size:12px" id="wallInfo"></div>
-      </div>
-      <canvas id="grid" aria-label="GPU 状态墙，每格一张卡，每 8 格一个节点"></canvas>
-      <div class="tip" id="tip">悬停查看节点。琥珀色的是降频的慢节点，点它可以换下来（需要热备）。</div>
+  <!-- 值班 -->
+  <section id="ops" aria-label="值班" hidden>
+    <div class="sheet">
+      <div class="sheet-head"><h1>机房平面图</h1><span class="formno" id="hall"></span></div>
+      <div class="statusline"><span class="state run" id="state">运行中</span><span class="state-sub" id="stateSub"></span></div>
+      <div class="plan-box"><canvas id="grid" aria-label="机房平面图：每个小格是一张 GPU，四台机器一个机柜"></canvas></div>
+      <div class="tip" id="tip"></div>
       <div class="pool" id="pool"></div>
-      <div class="legend">
-        <span style="--c:var(--ok)">训练中</span><span style="--c:var(--ckpt)">写 checkpoint</span><span style="--c:var(--warn)">慢节点</span><span style="--c:var(--bad)">故障</span><span style="--c:var(--idle)">等待/重启</span>
-      </div>
+      <div class="key" style="margin-top:8px"><span style="--c:var(--ink)">运行</span><span style="--c:var(--blue)">写 checkpoint</span><span style="--c:var(--hl)">降频</span><span style="--c:var(--red)">故障</span><span style="--c:var(--rule-soft)">停机</span></div>
     </div>
 
-    <div class="side">
-      <div class="card">
-        <div class="controls">
-          <button class="btn" id="pauseBtn">暂停</button>
-          <div class="speed" id="speed" role="group" aria-label="倍速"></div>
-          <div class="sep"></div>
-          <button class="btn" id="ckptBtn">立即存 checkpoint</button>
-          <button class="btn" id="spareAdd">+ 热备</button>
-          <button class="btn" id="spareDel">− 热备</button>
-          <button class="btn" id="reconfBtn">改配置</button>
-        </div>
-        <div class="field" style="margin-top:12px;max-width:220px"><label for="opsCkpt">checkpoint 间隔</label><select id="opsCkpt"></select></div>
+    <div class="sheet duty">
+      <div class="sheet-head"><h1>值班记录</h1><span class="formno" id="dutyNo"></span></div>
+      <div class="tools">
+        <button class="tbtn main" id="pauseBtn">暂停</button>
+        <div class="speed" id="speed" role="group" aria-label="模拟速度"></div>
+        <button class="tbtn" id="ckptBtn">存盘</button>
+        <button class="tbtn" id="spareAdd">加备机</button>
+        <button class="tbtn" id="spareDel">退备机</button>
+        <button class="tbtn" id="reconfBtn">改配置</button>
       </div>
+      <label class="inline-field" for="opsCkpt">存盘间隔 <select id="opsCkpt"></select></label>
       <div id="eventBox" hidden></div>
-      <div class="card">
-        <h2>实况</h2>
-        <dl class="kv" id="liveKv"></dl>
-      </div>
-      <div class="card">
-        <h2>进度 <small>有效 token，虚线是期限</small></h2>
-        <canvas class="chart" id="progChart"></canvas>
-        <h2 style="margin-top:14px">训练 loss</h2>
-        <canvas class="chart" id="lossChart"></canvas>
-      </div>
-      <div class="card">
-        <h2>值班日志</h2>
-        <ul class="log" id="log"></ul>
-      </div>
+
+      <h2 class="sec">现状</h2>
+      <dl class="kv" id="liveKv"></dl>
+      <h2 class="sec">进度 <small>虚线：照现在速度的预计</small></h2>
+      <canvas class="chart" id="progChart"></canvas>
+      <h2 class="sec">loss</h2>
+      <canvas class="chart" id="lossChart"></canvas>
+      <h2 class="sec">记录</h2>
+      <ul class="log" id="log"></ul>
     </div>
   </section>
 </div>
 
 <div class="shade" id="endShade" hidden>
-  <div class="result" role="dialog" aria-modal="true" aria-labelledby="endTitle">
-    <h2 id="endTitle"></h2>
-    <div class="stars" id="endStars"></div>
+  <div class="sheet accept" role="dialog" aria-modal="true" aria-labelledby="endTitle">
+    <div class="sheet-head"><h1 id="endTitle">验收单</h1><span class="formno" id="endNo"></span></div>
+    <span class="stamp" id="endStamp"></span>
+    <div class="grade-row"><span>评级</span><span class="grade" id="endGrade"></span><span id="endGradeNote"></span></div>
     <dl class="kv" id="endKv"></dl>
     <div class="acts">
-      <button class="btn primary" id="againBtn">再来一局</button>
-      <button class="btn" id="menuBtn">回到配置台</button>
+      <button class="submit" id="againBtn">同样配置再来一次</button>
+      <button class="linkbtn" id="menuBtn">重新填申请单</button>
     </div>
   </div>
 </div>

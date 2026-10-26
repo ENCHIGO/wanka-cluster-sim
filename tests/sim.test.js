@@ -28,7 +28,7 @@ test('405B 不切分会显存溢出', () => {
   const sc = SCENARIOS[1];
   const ev = evaluate({ ...sc.defaults, gpus: 512, tp: 1, pp: 1, gbs: 512 }, sc);
   assert.equal(ev.ok, false);
-  assert.match(ev.errors.join(), /显存溢出/);
+  assert.match(ev.errors.join(), /OOM/);
 });
 
 test('TP 跨节点比节点内慢', () => {
