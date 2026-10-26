@@ -1,7 +1,7 @@
 {
   "name": "wanka-cluster-sim",
   "version": "0.1.0",
-  "description": "万卡集群模拟器：在浏览器里当一回大模型训练集群的值班工程师",
+  "description": "万卡集群模拟器：在浏览器里当一回大模型集群的值班工程师，训练和推理部署两种玩法",
   "type": "module",
   "private": true,
   "scripts": {

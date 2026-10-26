@@ -155,6 +155,7 @@ export class HallView {
       if (v === 1) return st.phase === 'run' || blink ? 'fail' : 'off';
       if (v === 3) return 'off';
       if (v === 2) return 'slow';
+      if (v === 4) return 'ckpt';   // 推理：冷启动中的副本
       if (st.phase === 'ckpt') return rk.rowFrac <= st.progress ? 'ckpt' : 'ok';
       if (st.phase === 'restart') return rk.rowFrac <= st.progress ? 'ok' : 'off';
       if (st.phase === 'repair') return 'off';

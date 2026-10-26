@@ -338,14 +338,177 @@ kbd { font-family: var(--f-mono); font-size: 11px; line-height: 1; padding: 3px 
   .incidents { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 16px; }
   .tile4 .num { font-size: 34px; }
 }
+/* ---------- 顶栏：品牌 + 模式切换 ---------- */
+.topbar { display: flex; align-items: center; gap: 16px 20px; flex-wrap: wrap; }
+.modes { display: flex; gap: 4px; padding: 4px; border-radius: 14px; }
+.modes button { height: 36px; padding: 0 16px; border: 0; border-radius: 10px; background: transparent; color: var(--ink-2); font-weight: 500; cursor: pointer; white-space: nowrap; }
+.modes button:hover:not([aria-pressed="true"]) { color: var(--ink); background: var(--chip); }
+.modes button[aria-pressed="true"] { background: var(--ink); color: #fff; font-weight: 700; cursor: default; }
+.steps { display: flex; align-items: center; gap: 10px; margin: 0; padding: 0; list-style: none; font-size: 13px; color: var(--ink-3); }
+.steps li { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.steps li.cur { font-weight: 700; color: var(--ink); }
+.steps .sline { width: 28px; height: 1px; background: #b4bcc5; }
+.sdot { width: 22px; height: 22px; box-sizing: border-box; border-radius: 50%; border: 1.5px solid #9aa4ae; font-family: var(--f-num); font-weight: 600; font-size: 14px; display: grid; place-items: center; }
+.sdot.cur { border: 0; background: var(--ink); color: #fff; }
+.sdot.done { border: 0; background: #fff; color: var(--ok-ink); }
+.sdot.done svg { width: 13px; height: 13px; stroke-width: 3; }
+.step-back { display: flex; align-items: center; gap: 8px; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; }
+.step-back:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+
+/* ---------- 推理：选模型 ---------- */
+.model-grid { display: grid; grid-template-columns: 400px minmax(0, 1fr) 408px; gap: 16px; align-items: start; }
+.lib { padding: 18px 14px 14px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.lib-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 0 6px; }
+.lib-head h2 { font-size: 15px; font-weight: 700; }
+.search { display: flex; align-items: center; gap: 8px; height: 40px; margin: 0 6px; padding: 0 12px; border-radius: 10px; background: var(--chip); color: var(--ink-2); }
+.search input { flex: 1; min-width: 0; border: 0; background: transparent; font: inherit; font-size: 13px; color: var(--ink); outline: none; }
+.lib-list { display: flex; flex-direction: column; gap: 2px; }
+.mrow { width: 100%; display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; column-gap: 12px; padding: 9px 10px; border: 0; border-radius: 12px; background: transparent; text-align: left; cursor: pointer; }
+.mrow:hover:not([aria-pressed="true"]) { background: var(--fill); }
+.mrow[aria-pressed="true"] { background: var(--ink); color: #fff; }
+.mrow .mk { width: 32px; height: 32px; border-radius: 9px; background: var(--chip); font-weight: 900; display: grid; place-items: center; }
+.mrow[aria-pressed="true"] .mk { background: var(--yellow); color: var(--ink); }
+.mrow .nm { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 14px; font-weight: 700; line-height: 1.35; }
+.mrow .nm span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mrow .sb { display: block; font-size: 12px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mrow .sz { display: block; font-family: var(--f-num); font-weight: 600; font-size: 20px; line-height: 1; text-align: right; }
+.mrow .pr { display: block; font-size: 11px; color: var(--ink-2); text-align: right; white-space: nowrap; }
+.mrow[aria-pressed="true"] .sb, .mrow[aria-pressed="true"] .pr { color: rgba(255,255,255,0.72); }
+.mrow .tag { font-size: 11px; font-weight: 500; padding: 0 6px; border-radius: 999px; background: var(--info-bg); color: var(--info-ink); flex: none; }
+.lib-empty { padding: 14px 10px; font-size: 13px; color: var(--ink-2); }
+.hf { padding: 20px 26px 22px; display: flex; flex-direction: column; gap: 12px; min-width: 0; min-height: 776px; }
+.hf h2 { font-size: 17px; font-weight: 700; }
+.hf-row { display: flex; align-items: center; height: 48px; padding: 4px 4px 4px 0; border: 1px solid #cfd5db; border-radius: 12px; }
+.hf-row:focus-within { border-color: var(--ink); }
+.hf-pre { align-self: stretch; display: flex; align-items: center; padding: 0 10px 0 14px; font-size: 13px; color: var(--ink-2); border-right: 1px solid #e6e9ed; white-space: nowrap; }
+.hf-row input { flex: 1; min-width: 0; height: 38px; padding: 0 12px; border: 0; background: transparent; font-family: var(--f-mono); font-size: 14px; color: var(--ink); outline: none; }
+.hf-row .btn { height: 38px; border-radius: 9px; padding: 0 18px; }
+.hf-status { display: flex; align-items: center; gap: 6px 10px; flex-wrap: wrap; min-height: 22px; font-size: 12px; }
+.kv-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; font-size: 12px; }
+.kvcol { display: flex; flex-direction: column; min-width: 0; }
+.kv { display: flex; justify-content: space-between; align-items: center; gap: 8px; height: 27px; border-bottom: 1px solid #f0f2f4; }
+.kvcol .kv:last-child { border-bottom: 0; }
+.kv span:first-child { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tiles3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.mtile { padding: 10px 14px; border-radius: 12px; background: var(--fill); min-width: 0; }
+.mtile .num { font-size: 30px; line-height: 1.1; }
+.wbars { display: flex; flex-direction: column; gap: 6px; }
+.wbar { display: grid; grid-template-columns: 52px minmax(0, 1fr) 64px; align-items: center; gap: 10px; font-size: 12px; color: var(--ink-2); }
+.wbar.on { color: var(--ink); }
+.wbar.on > span:first-child { font-weight: 700; }
+.wbar > span:last-child { font-family: var(--f-mono); text-align: right; }
+.wbar .bar > i { background: #a4adb7; }
+.wbar.on .bar > i { background: var(--ink); }
+.drop { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border: 1.5px dashed #b4bcc5; border-radius: 14px; background: #fafbfc; margin-top: auto; }
+.drop.over { border-color: var(--info); background: var(--info-bg); }
+.drop .txt { flex: 1; min-width: 0; font-size: 12px; line-height: 1.6; color: var(--ink-2); }
+.drop .btns { display: flex; flex-direction: column; gap: 6px; flex: none; }
+.drop .btns .btn { height: 32px; padding: 0 12px; border-radius: 9px; font-size: 12px; justify-content: center; }
+.drop.paste { flex-direction: column; align-items: stretch; }
+.drop textarea { width: 100%; min-height: 150px; resize: vertical; padding: 10px 12px; border: 1px solid #cfd5db; border-radius: 10px; font-family: var(--f-mono); font-size: 12px; line-height: 1.5; color: var(--ink); background: #fff; }
+.drop textarea:focus { outline: none; border-color: var(--ink); }
+.col-fit { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.fit { padding: 18px 22px; display: flex; flex-direction: column; gap: 12px; }
+.fit-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.fit-chips span { font-size: 12px; font-weight: 500; padding: 1px 8px; border-radius: 999px; background: var(--chip); }
+.fit-grid { display: grid; gap: 8px; align-items: stretch; }
+.fit-grid .gh { font-size: 12px; font-weight: 500; color: var(--ink-2); align-self: end; }
+.fit-grid .gl { display: flex; flex-direction: column; justify-content: center; }
+.fcell { min-width: 0; padding: 10px 12px; border: 0; border-radius: 12px; background: var(--fill); text-align: left; display: flex; flex-direction: column; gap: 1px; cursor: pointer; }
+.fcell:hover:not(.no):not([aria-pressed="true"]) { box-shadow: inset 0 0 0 1px #c9d0d7; }
+.fcell.no { background: var(--bad-bg); cursor: default; }
+.fcell[aria-pressed="true"] { background: #fff; box-shadow: inset 0 0 0 2px var(--ink); }
+.fcell .a { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+.fcell .b { font-size: 12px; color: var(--ink-2); }
+.fcell.no .a { color: var(--bad-ink); }
+.fcell .best { font-size: 11px; font-weight: 700; color: var(--ink); background: var(--yellow); padding: 0 6px; border-radius: 999px; }
+.fcell .us { display: none; }
+.fit-note { padding: 12px 14px; border-radius: 12px; background: var(--fill); font-size: 13px; line-height: 1.6; }
+
+/* ---------- 推理：部署方案 ---------- */
+.sec-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px 12px; flex-wrap: wrap; }
+.chart-legend { display: flex; gap: 6px 16px; flex-wrap: wrap; font-size: 12px; color: var(--ink-2); }
+.chart-legend span { display: flex; align-items: center; gap: 6px; }
+.chart-legend i { display: block; }
+.traffic svg { display: block; width: 100%; height: auto; }
+.tiles4g { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.tiles4g .tile { min-height: 60px; padding: 9px 13px; }
+.tiles4g .tile[aria-pressed="true"] { padding: 8px 12px; }
+.tiles4g .tile .tick { width: 18px; height: 18px; right: 10px; top: 10px; }
+.grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.grid4 .seg button { padding: 0 2px; }
+.work { padding: 14px 18px; display: flex; flex-direction: column; gap: 8px; }
+.wrow { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 29px; border-bottom: 1px solid #f0f2f4; font-size: 13px; }
+.wrow:last-of-type { border-bottom: 0; }
+.wrow b { font-family: var(--f-num); font-size: 18px; font-weight: 600; }
+.locked { position: relative; }
+#sPlan .col-forecast { gap: 14px; }
+#sPlan .fc { gap: 12px; }
+#sPlan .notes { gap: 4px; }
+.locked .tile, .locked .seg, .locked .switch { pointer-events: none; opacity: 0.55; }
+.lat svg { display: block; width: 100%; height: auto; }
+
+/* ---------- 推理：值班 ---------- */
+.sevent { position: absolute; left: var(--gl); bottom: 116px; width: 352px; padding: 18px; box-shadow: var(--shadow-pop); display: flex; flex-direction: column; gap: 12px; z-index: 4; }
+.sev-choice { width: 100%; padding: 11px 14px; border: 1px solid var(--line-2); border-radius: 12px; background: var(--card); text-align: left; display: flex; flex-direction: column; gap: 4px; cursor: pointer; }
+.sev-choice:hover { border-color: var(--ink); box-shadow: 0 6px 18px -8px rgba(20,24,29,0.25); }
+.sev-choice .hd { display: flex; align-items: center; gap: 8px; width: 100%; }
+.sev-choice .ttl { font-size: 15px; font-weight: 700; }
+.sev-choice .chip { margin-left: auto; }
+.sev-choice .sub { font-size: 12px; line-height: 1.5; color: var(--ink-2); }
+.btn[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+.btn[aria-pressed="true"] kbd { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.3); color: #fff; }
+.chip-scene { position: absolute; transform: translate(-50%, -100%); display: flex; align-items: center; gap: 6px; padding: 4px 10px 4px 8px; background: #fff; border-radius: 999px; box-shadow: 0 1px 2px rgba(20,24,29,0.08), 0 4px 12px -2px rgba(20,24,29,0.2); font-size: 12px; font-weight: 500; white-space: nowrap; pointer-events: none; }
+.chip-scene::after { content: ""; position: absolute; left: 50%; bottom: -4px; width: 8px; height: 8px; margin-left: -4px; background: #fff; transform: rotate(45deg); }
+.pin.start { background: var(--info); }
+
+/* ---------- 推理：复盘 ---------- */
+.daycharts { display: grid; grid-template-columns: minmax(0, 1.92fr) minmax(0, 1fr); gap: 24px; }
+.daycharts svg { display: block; width: 100%; height: auto; }
+.hintbox { padding: 12px 14px; border-radius: 12px; background: var(--fill); display: flex; flex-direction: column; gap: 4px; font-size: 13px; line-height: 1.6; }
+
+@media (max-width: 1320px) {
+  .model-grid { grid-template-columns: 360px minmax(0, 1fr); }
+  .col-fit { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+  .hf { min-height: 0; }
+}
+@media (max-width: 1000px) {
+  .model-grid { grid-template-columns: minmax(0, 1fr); }
+  .col-fit { grid-template-columns: minmax(0, 1fr); }
+  .grid4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .daycharts { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 640px) {
+  .hf { padding: 18px 16px; }
+  .kv-grid { grid-template-columns: minmax(0, 1fr); }
+  .kvcol .kv:last-child { border-bottom: 1px solid #f0f2f4; }
+  .tiles3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .tiles4g { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hf-pre { display: none; }
+  .drop { flex-direction: column; align-items: stretch; }
+  .drop .btns { flex-direction: row; }
+  .drop .btns .btn { flex: 1; }
+  .steps { display: none; }
+  .fit { padding: 16px; }
+  .fit-grid { gap: 6px; }
+  .fcell { padding: 8px 9px; }
+  .fcell .u { display: none; }
+  .fcell .us { display: inline; }
+}
+@media (max-width: 860px) {
+  .sevent { position: relative; left: auto; bottom: auto; width: 100%; order: 2; }
+}
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 
 <div id="app">
   <section id="setup" class="setup" aria-label="开局配置">
-    <div class="card brand">
-      <div class="logo" data-icon="cube"></div>
-      <div style="min-width: 0"><div class="brand-name">万卡集群模拟器</div><div class="brand-sub">开局：选任务，配集群</div></div>
+    <div class="topbar">
+      <div class="card brand">
+        <div class="logo" data-icon="cube"></div>
+        <div style="min-width: 0"><div class="brand-name">万卡集群模拟器</div><div class="brand-sub">开局：选任务，配集群</div></div>
+      </div>
+      <div class="card modes" role="group" aria-label="模式"><button type="button" data-mode="train" aria-pressed="true">训练</button><button type="button" data-mode="serve" aria-pressed="false">推理部署</button></div>
     </div>
     <div class="setup-grid">
       <div class="col-missions">
@@ -489,6 +652,181 @@ kbd { font-family: var(--f-mono); font-size: 11px; line-height: 1; padding: 3px 
         <div id="timelineSvg"></div>
       </div>
       <div class="card incidents" id="incidents"></div>
+    </div>
+  </section>
+
+  <section id="sModel" class="setup" aria-label="推理部署：选模型" hidden>
+    <div class="topbar">
+      <div class="card brand">
+        <div class="logo" data-icon="cube"></div>
+        <div style="min-width: 0"><div class="brand-name">万卡集群模拟器</div><div class="brand-sub">推理部署：先选模型</div></div>
+      </div>
+      <div class="card modes" role="group" aria-label="模式"><button type="button" data-mode="train" aria-pressed="false">训练</button><button type="button" data-mode="serve" aria-pressed="true">推理部署</button></div>
+    </div>
+    <div class="model-grid">
+      <div class="card lib">
+        <div class="lib-head"><h2>模型库</h2><span class="small muted" id="libCount"></span></div>
+        <label class="search"><span data-icon="search"></span><input type="search" id="libSearch" placeholder="搜模型名或仓库" aria-label="搜索模型" autocomplete="off"></label>
+        <div class="lib-list" id="libList"></div>
+      </div>
+      <div class="card hf" id="hfCard">
+        <div><h2>从 Hugging Face 导入</h2><p class="small muted" style="margin-top: 2px">填仓库名，读它的 config.json，算出参数量、权重大小和 KV cache。</p></div>
+        <form class="hf-row" id="hfForm" autocomplete="off"><span class="hf-pre mono">huggingface.co/</span><input id="hfRepo" aria-label="Hugging Face 仓库" placeholder="组织/模型名" spellcheck="false"><button type="submit" class="btn primary" id="hfGo">读取</button></form>
+        <div class="hf-status" id="hfStatus"></div>
+        <div class="label" style="margin-top: 4px">config.json 里的关键字段</div>
+        <div class="kv-grid mono" id="cfgFields"></div>
+        <div class="label" style="margin-top: 4px">算出来的</div>
+        <div class="tiles3" id="modelTiles"></div>
+        <p class="small muted" id="modelNote" style="line-height: 1.6"></p>
+        <div class="wbars" id="weightBars"></div>
+        <div class="drop" id="dropZone"></div>
+      </div>
+      <div class="col-fit">
+        <div class="card fit">
+          <div class="fc-head" style="align-items: baseline"><h2>放得下吗</h2><span class="small muted" id="fitSub"></span></div>
+          <div class="fit-chips" id="fitChips"></div>
+          <div class="fit-grid" id="fitGrid"></div>
+          <p class="small muted" style="line-height: 1.6" id="fitFoot"></p>
+          <div class="fit-note" id="fitNote"></div>
+        </div>
+        <button class="start" id="toPlanBtn"><span><span style="display: block; font-size: 18px; font-weight: 700; line-height: 1.3" id="toPlanTitle"></span><span style="display: block; font-size: 12px; color: rgba(255,255,255,0.72)" id="toPlanSub"></span></span><span class="go" data-icon="arrow"></span></button>
+      </div>
+    </div>
+  </section>
+
+  <section id="sPlan" class="setup" aria-label="推理部署：部署方案" hidden>
+    <div class="topbar">
+      <div class="card brand">
+        <div class="logo" data-icon="cube"></div>
+        <div style="min-width: 0"><div class="brand-name">万卡集群模拟器</div><div class="brand-sub" id="planSub">推理部署：配方案</div></div>
+      </div>
+      <ol class="steps" id="planSteps">
+        <li><button type="button" class="step-back" id="backToModel"><span class="sdot done" data-icon="check"></span>选模型</button></li>
+        <li aria-hidden="true" class="sline"></li>
+        <li class="cur"><span class="sdot cur">2</span>配方案</li>
+        <li aria-hidden="true" class="sline"></li>
+        <li><span class="sdot">3</span>上线</li>
+      </ol>
+      <div class="card modes" role="group" aria-label="模式" id="planModes"><button type="button" data-mode="train" aria-pressed="false">训练</button><button type="button" data-mode="serve" aria-pressed="true">推理部署</button></div>
+    </div>
+    <div class="setup-grid">
+      <div class="col-missions">
+        <div class="label">任务</div>
+        <div class="missions" id="sMissions"></div>
+        <div class="card work" id="sWork"></div>
+      </div>
+      <div class="card config" id="sConfig">
+        <div class="config-head"><h2>部署方案</h2><span class="mono small muted" id="sCfgSummary"></span></div>
+        <section class="sec">
+          <div class="sec-head"><span class="label">预计流量 · 每秒请求</span><span class="chart-legend"><span><i style="width: 14px; height: 2px; background: var(--ink)"></i>流量</span><span><i style="width: 14px; height: 2px; background: var(--ok)"></i>能扛的量</span><span><i style="width: 8px; height: 8px; border-radius: 2px; background: var(--bad)"></i>排队</span></span></div>
+          <div id="sTrafficChart" class="traffic"></div>
+        </section>
+        <div class="divider"></div>
+        <section class="sec" id="sReplicaSec">
+          <div class="sec-head"><span class="label">每个副本</span><span class="small muted" id="sReplicaHint">一个副本放一整份权重，单独接请求</span></div>
+          <div class="tiles4g" id="sGpuTiles"></div>
+          <div class="grid2">
+            <div class="field"><div class="field-head"><span>每个副本几张卡</span><span class="small muted" id="sCardsInfo"></span></div><div class="seg" id="sSegCards" role="group" aria-label="每个副本几张卡"></div></div>
+            <div class="field"><div class="field-head"><span>权重精度</span><span class="small muted" id="sPrecInfo"></span></div><div class="seg" id="sSegPrec" role="group" aria-label="权重精度"></div></div>
+            <div class="field"><div class="field-head"><span>最大并发</span><span class="small muted">每副本同时解码几个请求</span></div><div class="seg" id="sSegBatch" role="group" aria-label="最大并发"></div><div class="small muted" id="sBatchInfo"></div></div>
+            <div class="field"><div class="field-head"><span>KV cache 存成 FP8</span></div><div style="display: flex; align-items: center; gap: 10px; min-height: 40px"><button class="switch" id="sSwKv" role="switch" aria-checked="true" aria-label="KV cache 存成 FP8"></button><span class="muted" id="sKvTxt">开</span></div><div class="small muted">同样的显存多存一倍上下文</div></div>
+          </div>
+          <div class="field" id="sHbm"></div>
+        </section>
+        <div class="divider"></div>
+        <section class="sec">
+          <div class="sec-head"><span class="label">扩缩容</span><span class="small muted">每 2 分钟看一次负载，一次最多加 8 个</span></div>
+          <div class="grid4">
+            <div class="field"><div class="field-head"><span>最少副本</span></div><div class="stepper" id="sStMin"></div><div class="small muted" id="sMinInfo"></div></div>
+            <div class="field"><div class="field-head"><span>最多副本</span></div><div class="stepper" id="sStMax"></div><div class="small muted" id="sMaxInfo"></div></div>
+            <div class="field"><div class="field-head"><span>目标负载</span></div><div class="seg" id="sSegTarget" role="group" aria-label="目标负载"></div><div class="small muted">超过就加副本</div></div>
+            <div class="field" id="sPreField"><div class="field-head"><span>开场前预扩到</span></div><div class="stepper" id="sStPre"></div><div class="small muted" id="sPreInfo"></div></div>
+          </div>
+        </section>
+      </div>
+      <div class="col-forecast">
+        <div class="card fc" id="sFc"></div>
+        <div class="card fc" id="sLat"></div>
+        <div class="card advisor">
+          <div class="who"><span class="avatar">周</span><div><div style="font-size: 14px; font-weight: 700; line-height: 1.3">老周</div><div class="small muted">集群负责人</div></div></div>
+          <ul class="notes" id="sNotes"></ul>
+        </div>
+        <button class="start" id="sStartBtn"><span><span style="display: block; font-size: 18px; font-weight: 700; line-height: 1.3" id="sStartTitle">上线</span><span style="display: block; font-size: 12px; color: rgba(255,255,255,0.72)" id="sStartSub"></span></span><span class="go" data-icon="arrow"></span></button>
+        <button class="linkbtn" id="sCancelBtn" hidden>不改了，回去值班</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="sLive" class="ops" aria-label="推理部署：线上值班" hidden>
+    <div class="stage" id="sStage">
+      <canvas id="sScene" aria-label="推理大厅：每个机柜顶上的四颗灯是四台机器，点机柜看上面的副本"></canvas>
+      <div id="sPins"></div>
+      <div class="hover-tag" id="sHover" hidden></div>
+    </div>
+    <div class="card brand hud-brand">
+      <div class="logo" data-icon="cube"></div>
+      <div style="min-width: 0"><div class="brand-name">万卡集群模拟器</div><div class="brand-sub" id="sLiveSub"></div></div>
+    </div>
+    <div class="card clock">
+      <div class="speed" id="sSpeed" role="group" aria-label="模拟速度"></div>
+      <div class="vsep"></div>
+      <div><div class="num" style="font-size: 28px" id="sClock">00:00</div><div style="font-size: 11px; margin-top: 3px" class="muted" id="sClockSub"></div></div>
+    </div>
+    <div class="legend" aria-hidden="true">
+      <span><i class="dot" style="background: var(--ok)"></i>在线</span>
+      <span><i class="dot" style="background: var(--info)"></i>冷启动</span>
+      <span><i class="dot" style="background: var(--bad)"></i>故障</span>
+      <span><i class="dot" style="background: var(--gray)"></i>空闲</span>
+    </div>
+    <aside class="rail">
+      <div class="card prog" id="sSlo"></div>
+      <div class="card alerts">
+        <div class="alerts-head"><h2>告警</h2><span class="small muted" id="sAlertsCount"></span></div>
+        <ul class="alist" id="sAlerts"></ul>
+      </div>
+      <div class="card train" id="sTraffic"></div>
+    </aside>
+    <div class="card dock">
+      <div class="status"><span class="dot" id="sStatusDot"></span><div style="min-width: 0"><div class="status-t" id="sStatusT"></div><div class="small muted" id="sStatusSub"></div></div></div>
+      <div class="vsep"></div>
+      <div class="counters">
+        <div class="counter"><div class="small muted">在线</div><div class="num" id="sCOn"></div></div>
+        <div class="counter"><div class="small muted">冷启动</div><div class="num" id="sCStart"></div></div>
+        <div class="counter"><div class="small muted">故障</div><div class="num" id="sCFail"></div></div>
+        <div class="counter"><div class="small muted">空闲</div><div class="num" id="sCIdle"></div></div>
+        <div class="counter optional"><div class="small muted">离上限还能加</div><div class="num" id="sCRoom"></div></div>
+      </div>
+      <div class="actions">
+        <button class="btn" id="sAddBtn"><span data-icon="server"></span>加 8 个副本<kbd>A</kbd></button>
+        <button class="btn" id="sShedBtn" aria-pressed="false"><span data-icon="filter"></span><span id="sShedTxt">限流</span><kbd>L</kbd></button>
+        <button class="btn" id="sReconfBtn"><span data-icon="sliders"></span>改方案<kbd>C</kbd></button>
+      </div>
+    </div>
+    <div class="card inspector" id="sInspector" hidden></div>
+    <div class="card sevent" id="sEvent" role="dialog" aria-labelledby="sEventTitle" hidden></div>
+  </section>
+
+  <section id="sReview" class="result" aria-label="推理部署：复盘" hidden>
+    <div class="card brand">
+      <div class="logo" data-icon="cube"></div>
+      <div style="min-width: 0"><div class="brand-name">万卡集群模拟器</div><div class="brand-sub" id="sReviewSub"></div></div>
+    </div>
+    <div class="card verdict" id="sVerdict"></div>
+    <div class="rright">
+      <div class="tiles4" id="sTiles"></div>
+      <div class="card timeline">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap">
+          <h2 style="font-size: 15px; font-weight: 700" id="sDayTitle">这一天</h2>
+          <div class="tl-legend">
+            <span><i style="width: 14px; height: 2px; background: var(--ink)"></i>流量 / 首 token</span>
+            <span><i style="width: 14px; height: 2px; background: var(--ok)"></i>能扛的量</span>
+            <span><i style="width: 8px; height: 8px; border-radius: 2px; background: var(--bad)"></i>排队</span>
+            <span><i style="width: 14px; height: 0; border-top: 1.5px dashed var(--bad)"></i>SLO</span>
+          </div>
+        </div>
+        <div class="daycharts" id="sDayCharts"></div>
+      </div>
+      <div class="card incidents" id="sIncidents"></div>
     </div>
   </section>
 </div>
