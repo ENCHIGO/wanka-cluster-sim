@@ -1,0 +1,279 @@
+<meta charset="utf-8">
+<title>万卡集群模拟器</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Saira+Condensed:wght@500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: 机房值班台。左边是整面 GPU 墙，右边是值班面板；开局前同一块区域是配置台 */
+:root {
+  --bg: #0e1519;
+  --panel: #141f25;
+  --raise: #1a2830;
+  --line: #24363f;
+  --fg: #d9e5e7;
+  --muted: #8299a0;
+  --accent: #f0a640;
+  --accent-ink: #1d1206;
+  --ok: #3fb7a0;
+  --ckpt: #6a9cf5;
+  --warn: #f0a640;
+  --bad: #ec5a5f;
+  --idle: #34474f;
+  --f-display: "Saira Condensed", "Noto Sans SC", "PingFang SC", sans-serif;
+  --f-body: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { background: var(--bg); color: var(--fg); }
+body { font-family: var(--f-body); font-size: 14px; line-height: 1.55; }
+button, select, input { font: inherit; color: inherit; }
+.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+
+.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 16px 40px; display: grid; gap: 16px; }
+
+/* 顶栏 */
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; padding-block: 4px 12px; border-bottom: 1px solid var(--line); }
+.brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
+.brand h1 { margin: 0; font-family: var(--f-display); font-weight: 700; font-size: 30px; letter-spacing: 0.02em; line-height: 1; }
+.brand h1 b { color: var(--accent); font-weight: 700; }
+.brand span { color: var(--muted); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; font-family: var(--f-mono); }
+.meter { display: grid; gap: 2px; min-width: 120px; }
+.meter label { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; }
+.meter .v { font-family: var(--f-mono); font-size: 18px; font-variant-numeric: tabular-nums; }
+.meter .bar { height: 3px; background: var(--line); border-radius: 2px; overflow: hidden; }
+.meter .bar i { display: block; height: 100%; width: 0; background: var(--ok); }
+.meter.money .bar i { background: var(--accent); }
+.meter.time .bar i { background: var(--ckpt); }
+
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 16px; min-width: 0; }
+.card h2 { margin: 0 0 12px; font-family: var(--f-display); font-weight: 500; font-size: 15px; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; }
+.card h2 small { font-family: var(--f-body); letter-spacing: 0; text-transform: none; margin-left: 6px; }
+
+/* 配置台 */
+#setup { display: grid; grid-template-columns: 280px minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
+.levels { display: grid; gap: 10px; }
+.level { text-align: left; background: var(--raise); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; cursor: pointer; display: grid; gap: 4px; }
+.level:hover { border-color: var(--muted); }
+.level[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.level .t { font-weight: 700; font-size: 15px; }
+.level .s { color: var(--muted); font-size: 12px; font-family: var(--f-mono); }
+.brief { color: var(--fg); margin: 12px 0 0; font-size: 13px; }
+
+.form { display: grid; gap: 18px; }
+.group { display: grid; gap: 10px; }
+.group > h3 { margin: 0; font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: 0.1em; }
+.fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px 14px; }
+.field { display: grid; gap: 4px; }
+.field label { font-size: 12px; color: var(--muted); }
+.field select, .field input[type="number"] { background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 7px 8px; font-family: var(--f-mono); font-size: 13px; width: 100%; }
+.field .hint { font-size: 11px; color: var(--muted); }
+.toggle { display: flex; align-items: center; gap: 8px; padding-top: 6px; }
+.toggle input { accent-color: var(--accent); width: 16px; height: 16px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.forecast { display: grid; gap: 14px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); }
+.kv { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; font-size: 13px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; text-align: right; font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.kv dd.good { color: var(--ok); } .kv dd.bad { color: var(--bad); } .kv dd.warn { color: var(--warn); }
+.stack { display: flex; height: 14px; border-radius: 3px; overflow: hidden; background: var(--bg); }
+.stack i { display: block; height: 100%; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11px; color: var(--muted); }
+.legend span::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; background: var(--c); vertical-align: 0; }
+.notes { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 12px; }
+.notes li { padding: 6px 8px 6px 10px; border-radius: 4px; background: var(--raise); border-left: 3px solid var(--warn); }
+.notes li.err { border-left-color: var(--bad); color: var(--fg); }
+.notes li.fine { border-left-color: var(--ok); }
+
+.btn { background: var(--raise); border: 1px solid var(--line); border-radius: 4px; padding: 7px 12px; cursor: pointer; white-space: nowrap; }
+.btn:hover:not(:disabled) { border-color: var(--muted); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+.btn.big { font-size: 16px; padding: 11px 18px; width: 100%; }
+.btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+
+/* 值班台 */
+#ops { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; align-items: start; }
+.wall { display: grid; gap: 10px; }
+.wall-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; }
+.phase { font-family: var(--f-display); font-size: 22px; font-weight: 700; letter-spacing: 0.04em; }
+.phase.run { color: var(--ok); } .phase.ckpt { color: var(--ckpt); } .phase.restart, .phase.repair { color: var(--bad); } .phase.paused { color: var(--muted); }
+#grid { width: 100%; display: block; cursor: crosshair; border-radius: 3px; }
+.tip { font-size: 12px; color: var(--muted); min-height: 1.6em; }
+.pool { display: flex; flex-wrap: wrap; gap: 16px; font-size: 12px; color: var(--muted); align-items: center; }
+.pool .chips { display: inline-flex; gap: 3px; vertical-align: middle; margin-left: 6px; }
+.pool .chips i { width: 10px; height: 10px; border-radius: 2px; background: var(--ok); opacity: 0.55; }
+.pool .chips.rep i { background: var(--bad); opacity: 0.6; }
+
+.side { display: grid; gap: 16px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.controls .sep { flex-basis: 100%; height: 0; }
+.speed { display: inline-flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.speed button { background: none; border: 0; border-right: 1px solid var(--line); padding: 6px 10px; cursor: pointer; font-family: var(--f-mono); font-size: 12px; }
+.speed button:last-child { border-right: 0; }
+.speed button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.chart { width: 100%; height: 120px; display: block; }
+.event { border: 1px solid var(--warn); background: var(--raise); border-radius: 6px; padding: 12px 14px; display: grid; gap: 8px; }
+.event p { margin: 0; }
+.event .acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.log { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow-y: auto; display: grid; gap: 2px; font-size: 12px; }
+.log li { display: grid; grid-template-columns: 74px 1fr; gap: 8px; padding: 3px 0; border-bottom: 1px solid var(--line); }
+.log time { font-family: var(--f-mono); color: var(--muted); }
+.log li.bad span { color: var(--bad); } .log li.warn span { color: var(--warn); } .log li.good span { color: var(--ok); } .log li.info span { color: var(--fg); }
+
+/* 结算 */
+.shade { position: fixed; inset: 0; background: color-mix(in srgb, var(--bg) 80%, transparent); display: grid; place-items: center; padding: max(16px, env(safe-area-inset-left, 0px)); z-index: 20; }
+.result { width: min(480px, 100%); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 24px; display: grid; gap: 14px; }
+.result h2 { margin: 0; font-family: var(--f-display); font-size: 34px; line-height: 1.1; text-wrap: balance; }
+.result h2.win { color: var(--ok); } .result h2.lose { color: var(--bad); }
+.stars { font-size: 28px; letter-spacing: 6px; color: var(--accent); }
+.stars s { color: var(--line); text-decoration: none; }
+.result .acts { display: flex; gap: 10px; flex-wrap: wrap; }
+
+@media (max-width: 1100px) {
+  #setup { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  #setup .levels-card { grid-column: 1 / -1; }
+  .levels { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+  #ops { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 720px) {
+  #setup { grid-template-columns: minmax(0, 1fr); }
+  .forecast { position: static; }
+  .meter { min-width: 0; flex: 1 1 40%; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><h1>万卡<b>集群</b>模拟器</h1><span id="tagline">GPU cluster ops</span></div>
+    <div class="meter time"><label>训练时间 / 期限</label><div class="v" id="mTime">—</div><div class="bar"><i id="bTime"></i></div></div>
+    <div class="meter money"><label>花费 / 预算</label><div class="v" id="mCost">—</div><div class="bar"><i id="bCost"></i></div></div>
+    <div class="meter"><label>有效 token / 目标</label><div class="v" id="mTok">—</div><div class="bar"><i id="bTok"></i></div></div>
+  </header>
+
+  <section id="setup" aria-label="开局配置">
+    <div class="card levels-card">
+      <h2>关卡</h2>
+      <div class="levels" id="levels"></div>
+      <p class="brief" id="brief"></p>
+    </div>
+
+    <div class="card">
+      <h2>集群与训练配置 <small id="modelName"></small></h2>
+      <div class="form">
+        <div class="group">
+          <h3>硬件</h3>
+          <div class="fields">
+            <div class="field"><label for="fGpu">GPU 型号</label><select id="fGpu"></select><span class="hint" id="hGpu"></span></div>
+            <div class="field"><label for="fGpus">卡数</label><select id="fGpus"></select><span class="hint" id="hGpus"></span></div>
+            <div class="field"><label for="fNet">节点间网络</label><select id="fNet"></select><span class="hint" id="hNet"></span></div>
+            <div class="field"><label for="fStorage">checkpoint 存储</label><select id="fStorage"></select><span class="hint" id="hStorage"></span></div>
+          </div>
+        </div>
+        <div class="group">
+          <h3>并行策略</h3>
+          <div class="fields">
+            <div class="field"><label for="fTp">张量并行 TP</label><select id="fTp"></select><span class="hint">≤8 走 NVLink</span></div>
+            <div class="field"><label for="fPp">流水线并行 PP</label><select id="fPp"></select><span class="hint">切层，会有气泡</span></div>
+            <div class="field" id="epField"><label for="fEp">专家并行 EP</label><select id="fEp"></select><span class="hint">专家分到多少张卡</span></div>
+            <div class="field"><label for="fGbs">全局批次（条 × 4096）</label><select id="fGbs"></select><span class="hint" id="hGbs"></span></div>
+            <div class="field"><label class="toggle" for="fRecompute"><input type="checkbox" id="fRecompute"> 激活重计算</label><span class="hint">省显存，多算三分之一</span></div>
+          </div>
+        </div>
+        <div class="group">
+          <h3>容错</h3>
+          <div class="fields">
+            <div class="field"><label for="fCkpt">checkpoint 间隔</label><select id="fCkpt"></select><span class="hint" id="hCkpt"></span></div>
+            <div class="field"><label for="fSpares">热备节点（每台 8 卡）</label><input type="number" id="fSpares" min="0" max="64" step="1"><span class="hint">闲置也计费</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="forecast">
+      <div class="card">
+        <h2>开跑前预估</h2>
+        <dl class="kv" id="fcKv"></dl>
+      </div>
+      <div class="card">
+        <h2>单步时间拆解 <small class="num" id="stepTotal"></small></h2>
+        <div class="stack" id="stepStack"></div>
+        <div class="legend" style="margin-top:8px">
+          <span style="--c:var(--ok)">计算</span><span style="--c:#9fd3c7">TP 通信</span><span style="--c:#c792ea">EP all-to-all</span><span style="--c:var(--warn)">流水线气泡</span><span style="--c:var(--ckpt)">DP 梯度同步</span>
+        </div>
+        <h2 style="margin-top:16px">每卡显存 <small class="num" id="memTotal"></small></h2>
+        <div class="stack" id="memStack"></div>
+        <div class="legend" style="margin-top:8px">
+          <span style="--c:var(--ok)">权重+梯度</span><span style="--c:var(--ckpt)">优化器</span><span style="--c:var(--warn)">激活</span><span style="--c:var(--muted)">其他</span>
+        </div>
+      </div>
+      <div class="card">
+        <ul class="notes" id="notes"></ul>
+        <div style="margin-top:14px;display:grid;gap:8px"><button class="btn primary big" id="startBtn">开始训练</button><button class="btn" id="cancelBtn" hidden>不改了，回值班台</button></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="ops" aria-label="训练值班" hidden>
+    <div class="card wall">
+      <div class="wall-head">
+        <div class="phase run" id="phase">训练中</div>
+        <div class="num" style="color:var(--muted);font-size:12px" id="wallInfo"></div>
+      </div>
+      <canvas id="grid" aria-label="GPU 状态墙，每格一张卡，每 8 格一个节点"></canvas>
+      <div class="tip" id="tip">悬停查看节点。琥珀色的是降频的慢节点，点它可以换下来（需要热备）。</div>
+      <div class="pool" id="pool"></div>
+      <div class="legend">
+        <span style="--c:var(--ok)">训练中</span><span style="--c:var(--ckpt)">写 checkpoint</span><span style="--c:var(--warn)">慢节点</span><span style="--c:var(--bad)">故障</span><span style="--c:var(--idle)">等待/重启</span>
+      </div>
+    </div>
+
+    <div class="side">
+      <div class="card">
+        <div class="controls">
+          <button class="btn" id="pauseBtn">暂停</button>
+          <div class="speed" id="speed" role="group" aria-label="倍速"></div>
+          <div class="sep"></div>
+          <button class="btn" id="ckptBtn">立即存 checkpoint</button>
+          <button class="btn" id="spareAdd">+ 热备</button>
+          <button class="btn" id="spareDel">− 热备</button>
+          <button class="btn" id="reconfBtn">改配置</button>
+        </div>
+        <div class="field" style="margin-top:12px;max-width:220px"><label for="opsCkpt">checkpoint 间隔</label><select id="opsCkpt"></select></div>
+      </div>
+      <div id="eventBox" hidden></div>
+      <div class="card">
+        <h2>实况</h2>
+        <dl class="kv" id="liveKv"></dl>
+      </div>
+      <div class="card">
+        <h2>进度 <small>有效 token，虚线是期限</small></h2>
+        <canvas class="chart" id="progChart"></canvas>
+        <h2 style="margin-top:14px">训练 loss</h2>
+        <canvas class="chart" id="lossChart"></canvas>
+      </div>
+      <div class="card">
+        <h2>值班日志</h2>
+        <ul class="log" id="log"></ul>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="shade" id="endShade" hidden>
+  <div class="result" role="dialog" aria-modal="true" aria-labelledby="endTitle">
+    <h2 id="endTitle"></h2>
+    <div class="stars" id="endStars"></div>
+    <dl class="kv" id="endKv"></dl>
+    <div class="acts">
+      <button class="btn primary" id="againBtn">再来一局</button>
+      <button class="btn" id="menuBtn">回到配置台</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="src/game.js"></script>
