@@ -3,13 +3,15 @@ import {
   GPUS, NETWORKS, STORAGE, MODELS, SCENARIOS, GPU_COUNTS, TP_OPTIONS, PP_OPTIONS, EP_OPTIONS,
   GBS_OPTIONS, CKPT_OPTIONS, NODE_GPUS, REPAIR_WAIT_SEC, SEQ_LEN, evaluate, lossAt,
   REPAIR_HOURS, SWAP_REPAIR_HOURS, STRAGGLER_SLOWDOWN, STRAGGLER_RECOVER,
+  TRAIN_PRECISION, precOk, precPeak, suggestHardware,
 } from './sim.js';
+import { gpuName } from './gpus.js';
+import { gpuPicker } from './picker.js';
 import { HallView, hallLayout, nodeHost, rackName, NODES_PER_RACK } from './scene.js';
 import { $, STROKE, icon, fillIcons, fmtInt, fmtMoney, pct, pad2, segment, stepper, showOnly, registerMode } from './ui.js';
 import { serveSnapshot, serveBoot } from './serve-ui.js';
 
 const SPEEDS = [2, 8, 24];               // 每真实秒推进的模拟小时
-const SPIKE_PER_HOUR = 1 / 70;
 const NODE_OK = 0, NODE_FAIL = 1, NODE_SLOW = 2, NODE_SWAP = 3;
 const HALL = '训练大厅 A';
 const COST_S = 0.9, GOODPUT_S = 0.85;   // 评级：按期交付 + 花费不超过预算 90% + Goodput 不低于 85%
@@ -22,6 +24,12 @@ const fmtTokAxis = (t) => t >= 1e11 ? +(t / 1e12).toFixed(2) + 'T' : fmtTok(t);
 const fmtDur = (sec) => sec < 90 ? Math.max(1, Math.round(sec)) + ' 秒' : sec < 5400 ? Math.round(sec / 60) + ' 分钟' : (sec / 3600).toFixed(1) + ' 小时';
 const clock = (sec) => `D${Math.floor(sec / 86400) + 1} ${pad2(Math.floor(sec % 86400 / 3600))}:${pad2(Math.floor(sec % 3600 / 60))}`;
 const gpuLabel = (n) => n < 1000 ? String(n) : n / 1024 + 'K';
+const fmtTf = (t) => (t >= 1000 ? (t / 1000).toFixed(t >= 10000 ? 0 : 1) + ' PF' : Math.round(t) + ' TF');
+const precLabel = (p) => TRAIN_PRECISION[p]?.label || 'BF16';
+// 这张卡能用的最快精度：优先保留现在选的
+const fitPrec = (gpu, p) => (precOk(GPUS[gpu], p) ? p : precOk(GPUS[gpu], 'fp8') ? 'fp8' : 'bf16');
+// 训练大厅里够不够这么多卡
+const maxCards = (sc, gpu) => Math.min(sc.maxGpus, GPUS[gpu].trainStock || Infinity);
 
 // ---------- 状态 ----------
 let scIdx = 0;
@@ -32,6 +40,7 @@ let L = null;             // 机房排布
 let speedIdx = 1;
 let reconfig = false;
 let selected = null, hover = null;
+let picker = null;
 const view = new HallView($('scene'));
 const preview = new HallView($('previewCanvas'));
 
@@ -44,7 +53,16 @@ function buildSetup() {
     cfg = { ...SCENARIOS[scIdx].defaults };
     syncSetup(true);
   };
-  $('gpuTiles').onclick = (e) => { const b = e.target.closest('.tile'); if (b) { cfg.gpu = b.dataset.v; syncSetup(); } };
+  picker = gpuPicker({
+    wrap: $('tGpuPick'), btn: $('tGpuBtn'), pop: $('tGpuPop'), value: () => cfg.gpu, items: pickerItems,
+    onPick: (id) => {
+      cfg.gpu = id; cfg.precision = fitPrec(id, cfg.precision || 'bf16');
+      const cap = maxCards(SCENARIOS[scIdx], id);
+      if (cfg.gpus > cap) cfg.gpus = GPU_COUNTS.filter((n) => n <= cap).pop() || cfg.gpus;
+      syncSetup();
+    },
+  });
+  $('notes').onclick = (e) => { if (e.target.closest('#applyTip') && tipCache.tip) { cfg = { ...tipCache.tip.cfg }; syncSetup(); } };
   const set = (k) => (v) => { cfg[k] = v; syncSetup(); };
   stepper($('stTp'), 'TP ', TP_OPTIONS, () => cfg.tp, set('tp'));
   stepper($('stPp'), 'PP ', PP_OPTIONS, () => cfg.pp, set('pp'));
@@ -57,30 +75,39 @@ function buildSetup() {
 
 function syncSetup(missionChanged = false) {
   const sc = SCENARIOS[scIdx], model = MODELS[sc.model];
+  if (!GPUS[cfg.gpu]) cfg.gpu = sc.defaults.gpu;
+  if (!TRAIN_PRECISION[cfg.precision]) cfg.precision = 'bf16';
   ev = evaluate(cfg, sc);
+  picker?.refresh();
   const gpu = GPUS[cfg.gpu], net = NETWORKS[cfg.net], sto = STORAGE[cfg.storage];
 
   // 任务卡
   $('missions').innerHTML = SCENARIOS.map((s, i) => {
-    const sel = i === scIdx, lvl = s.level === '入门' ? 'ok' : s.level === '困难' ? 'hard' : 'bad';
+    const sel = i === scIdx, lvl = s.level === '入门' ? 'ok' : s.level === '进阶' ? 'warn' : s.level === '困难' ? 'hard' : 'bad';
     return `<button type="button" class="mission${sel ? ' sel' : ''}" data-i="${i}" aria-pressed="${sel}"${reconfig && !sel ? ' disabled' : ''}>
       <span class="row1"><span class="mono small muted">${pad2(i + 1)}</span><span style="display: flex; align-items: center; gap: 8px"><span class="chip ${lvl}">${s.level}</span><span class="check">${icon('check', 13, 3)}</span></span></span>
       <span class="big"><span class="size">${s.size}</span><span class="muted" style="font-size: 13px">${s.kind} · 训 ${fmtTokShort(s.tokens)} token</span></span>
       <span class="brief">${s.brief}</span>
-      <span class="facts"><span>${s.deadlineDays} 天</span><span>${fmtMoney(s.budget)}</span><span>最多 ${fmtInt(s.maxGpus)} 卡</span></span>
+      <span class="facts"><span>${s.deadlineDays} 天</span><span>${fmtMoney(s.budget)}</span><span>最多 ${fmtInt(s.maxGpus)} 卡</span>${s.gpus ? `<span>只能用${GPUS[s.gpus[0]].vendor === '华为' ? '昇腾' : s.gpus.map(gpuName).join('、')}</span>` : ''}</span>
     </button>`;
   }).join('');
 
   // 硬件
-  $('gpuTiles').innerHTML = Object.values(GPUS).map((x) => `<button type="button" class="tile" data-v="${x.id}" aria-pressed="${cfg.gpu === x.id}">
-      <span style="display: flex; align-items: baseline; gap: 8px"><span style="font-size: 17px; font-weight: 700">${x.id}</span><span class="small muted">${x.hbm} GB</span></span>
-      <span class="small muted">${fmtInt(x.tflops)} TFLOPS · $${x.price}/卡时</span>
-      <span class="tick">${icon('check', 12, 3)}</span></button>`).join('');
-  segment($('segGpus'), GPU_COUNTS.map((n) => ({ v: n, label: gpuLabel(n), disabled: n > sc.maxGpus, title: n > sc.maxGpus ? `这单最多批 ${fmtInt(sc.maxGpus)} 卡` : `${fmtInt(n)} 卡` })), cfg.gpus, (v) => { cfg.gpus = +v; syncSetup(); }, true);
+  const peakNow = precPeak(gpu, cfg.precision);
+  $('tGpuBtn').innerHTML = `<span style="min-width: 0"><span class="nm">${gpu.name}<span class="small muted">${gpu.vendor}</span></span>
+      <span class="sub">${gpu.hbm} GB · BF16 ${fmtTf(gpu.tf16)}${gpu.f8 ? '' : ` · FP8 ${fmtTf(gpu.tf8)}`}${gpu.tf4 ? ` · FP4 ${fmtTf(gpu.tf4)}` : ''} · $${gpu.price}/卡时${gpu.trainStock ? ` · 大厅里只有 ${fmtInt(gpu.trainStock)} 张` : ''}</span>${gpu.note ? `<span class="sub">${gpu.note}</span>` : ''}</span>
+    <span class="chev">换卡${icon('chev', 14, 2.2)}</span>`;
+  const cap = maxCards(sc, cfg.gpu);
+  segment($('segGpus'), GPU_COUNTS.map((n) => ({ v: n, label: gpuLabel(n), disabled: n > cap, title: n > sc.maxGpus ? `这单最多批 ${fmtInt(sc.maxGpus)} 卡` : n > cap ? `${gpu.name} 只有 ${fmtInt(cap)} 张` : `${fmtInt(n)} 卡` })), cfg.gpus, (v) => { cfg.gpus = +v; syncSetup(); }, true);
   $('gpusInfo').innerHTML = `<b class="num" style="font-size: 20px; color: var(--ink)">${fmtInt(cfg.gpus)}</b> 卡 · ${fmtInt(cfg.gpus / NODE_GPUS)} 台 · ${fmtInt(cfg.gpus / 32)} 柜`;
-  segment($('segNet'), [['roce200', 'RoCE 200G'], ['ib400', 'IB 400G'], ['ib800', 'IB 800G']].map(([v, label]) => ({ v, label })), cfg.net, (v) => { cfg.net = v; syncSetup(); });
+  segment($('segPrec'), ['bf16', 'fp8', 'fp4'].map((p) => ({ v: p, label: p === 'fp8' && gpu.f8 ? 'FP8' : precLabel(p), disabled: !precOk(gpu, p), title: precOk(gpu, p) ? `${precLabel(p)} 峰值 ${fmtTf(precPeak(gpu, p))}` : `${gpu.name} 不支持` })), cfg.precision,
+    (v) => { cfg.precision = v; syncSetup(); });
+  $('precInfo').textContent = cfg.precision === 'bf16' ? `峰值 ${fmtTf(peakNow)}` : `峰值 ${fmtTf(peakNow)}，尖峰 ×${TRAIN_PRECISION[cfg.precision].spike}`;
+  segment($('segNet'), [['roce200', 'RoCE 200G'], ['ib400', 'IB 400G'], ['ib800', 'IB 800G'], ['x1600', '1.6T']].map(([v, label]) => ({ v, label, title: NETWORKS[v].name })), cfg.net, (v) => { cfg.net = v; syncSetup(); });
   segment($('segSto'), [['std', '标准 100 GB/s'], ['fast', '全闪 600 GB/s']].map(([v, label]) => ({ v, label })), cfg.storage, (v) => { cfg.storage = v; syncSetup(); });
-  $('netInfo').textContent = `每卡 ${net.bw.toFixed(0)} GB/s · $${net.price}/卡时`;
+  const netBw = Math.min(net.bw, gpu.nic * 0.85);
+  $('netInfo').textContent = netBw < net.bw - 1e-9 ? `网卡只到 ${gpu.nic * 8}G，每卡 ${netBw.toFixed(0)} GB/s` : `每卡 ${net.bw.toFixed(0)} GB/s · $${net.price}/卡时`;
+  $('tpInfo').textContent = gpu.domain > NODE_GPUS ? `${gpu.domain} 卡一个 ${gpu.fabric} 域，域内都走 ${gpu.fabric}` : `机内走 ${gpu.fabric}，最多 8`;
   $('stoInfo').textContent = ev.ckptSec ? `存一次 ${fmtDur(ev.ckptSec)} · $${sto.price}/小时` : `$${sto.price}/小时`;
 
   // 并行
@@ -103,7 +130,7 @@ function syncSetup(missionChanged = false) {
   $('ckptInfo').textContent = ev.ok ? `最优约 ${Math.round(ev.youngMin)} 分钟：全集群 ${ev.mtbfHours.toFixed(1)} 小时坏一次` : '';
   const perSpare = `每台 $${Math.round(NODE_GPUS * (gpu.price + net.price))}/小时`;
   $('sparesInfo').textContent = ev.ok ? `平均 ${ev.inRepair.toFixed(1)} 台在送修，至少留 ${ev.sparesNeeded} 台 · ${perSpare}` : `闲着也计费，${perSpare}`;
-  $('cfgSummary').textContent = `${cfg.gpu} × ${fmtInt(cfg.gpus)} · TP${cfg.tp} PP${cfg.pp} DP${Number.isInteger(dp) ? dp : '?'}${model.moe ? ' EP' + cfg.ep : ''}`;
+  $('cfgSummary').textContent = `${gpu.name} × ${fmtInt(cfg.gpus)} · ${precLabel(cfg.precision)} · TP${cfg.tp} PP${cfg.pp} DP${Number.isInteger(dp) ? dp : '?'}${model.moe ? ' EP' + cfg.ep : ''}`;
 
   renderForecast(sc);
   if (missionChanged || preview.L?.gpus !== cfg.gpus) layoutPreview();
@@ -113,6 +140,7 @@ function renderDiagram(dp, model) {
   const { tp, pp } = cfg;
   const ch = Math.max(2, Math.min(9, Math.floor(120 / pp) - 2)), cw = Math.max(2, Math.min(9, Math.floor(150 / tp) - 2));
   const labels = ch >= 7;
+  const G = GPUS[cfg.gpu], inDomain = tp <= G.domain;
   const firstLabel = tp === NODE_GPUS ? '第 1 段 · 一台机器' : tp > NODE_GPUS ? `第 1 段 · 跨 ${tp / NODE_GPUS} 台` : '第 1 段';
   let html = '';
   for (let r = 0; r < pp; r++) {
@@ -126,11 +154,47 @@ function renderDiagram(dp, model) {
   $('diagTitle').textContent = `一份模型 = ${tp * pp} 卡`;
   $('diagReps').textContent = Number.isInteger(dp) ? `× ${fmtInt(dp)} 份` : '';
   const machines = tp * pp / NODE_GPUS;
-  let note = tp > NODE_GPUS ? `TP${tp} 一行要跨 ${tp / NODE_GPUS} 台机器，张量并行走 IB。`
+  let note = tp > NODE_GPUS ? (inDomain ? `TP${tp} 跨 ${tp / NODE_GPUS} 台机器，还在一个 ${G.fabric} 域里。` : `TP${tp} 一行要跨 ${tp / NODE_GPUS} 台机器，张量并行走网卡。`)
     : tp === NODE_GPUS ? `TP8 在一台机器里，PP${pp} 把 ${pp} 台串起来${pp % 4 === 0 ? `，正好 ${pp / 4} 个机柜` : ''}。`
       : machines < 1 ? `一台机器能放 ${1 / machines} 份模型。` : `每台机器放 ${NODE_GPUS / tp} 段，一份模型占 ${machines} 台。`;
-  if (model.moe) note += ` EP${cfg.ep}：每张卡放 ${model.experts / cfg.ep} 个专家。`;
+  if (model.moe) note += ` EP${cfg.ep}：每张卡放 ${+(model.experts / cfg.ep).toFixed(2)} 个专家，all-to-all ${cfg.ep * tp <= G.domain ? `在 ${G.fabric} 域里` : '要走网卡'}。`;
   $('diagNote').textContent = note;
+}
+
+// 换卡列表：每种卡照现在的切分（精度换成它支持的）算一遍工期和花费
+function pickerItems() {
+  const sc = SCENARIOS[scIdx], allowed = sc.gpus || Object.keys(GPUS);
+  return Object.keys(GPUS).map((id) => {
+    const G = GPUS[id], c = { ...cfg, gpu: id, precision: fitPrec(id, cfg.precision) };
+    const cap = maxCards(sc, id);
+    if (c.gpus > cap) c.gpus = GPU_COUNTS.filter((n) => n <= cap).pop() || c.gpus;
+    const e = evaluate(c, sc);
+    const sub = `${G.hbm} GB · ${precLabel(c.precision)} ${fmtTf(precPeak(G, c.precision))} · $${G.price}/卡时${G.trainStock ? ` · 只有 ${fmtInt(G.trainStock)} 张` : ''}`;
+    let right;
+    if (!allowed.includes(id)) right = '<span class="t-bad">这单不能用</span>';
+    else if (!e.ok) right = `<span class="t-bad">${/显存/.test(e.errors.join()) ? '显存不够' : '配不起来'}</span>`;
+    else right = `${e.etaDays.toFixed(1)} 天<span class="a">${fmtMoney(e.estCost)}</span>`;
+    return { id, sub, right, disabled: !allowed.includes(id), eta: e.ok ? e.etaDays : Infinity };
+  }).map((x, i, all) => ({ ...x, badge: x.eta === Math.min(...all.map((y) => y.eta)) && x.eta < Infinity ? '最快' : '' }));
+}
+
+// 老周换卡的建议：搜一遍要几十毫秒，同样的配置只算一次
+const tipCache = { key: '', tip: null };
+function hardwareTip(sc, e) {
+  const key = sc.id + JSON.stringify(cfg);
+  if (tipCache.key !== key) { tipCache.key = key; tipCache.tip = suggestHardware(cfg, sc, e); }
+  const t = tipCache.tip;
+  if (!t) return '';
+  const c = t.cfg, ch = [];
+  if (c.gpu !== cfg.gpu || c.gpus !== cfg.gpus) ch.push(`${gpuName(c.gpu)} × ${fmtInt(c.gpus)}`);
+  if (c.precision !== cfg.precision) ch.push(precLabel(c.precision));
+  const par = [['tp', 'TP'], ['pp', 'PP'], ['ep', 'EP']].filter(([k]) => c[k] !== cfg[k]).map(([k, l]) => `${l}${c[k]}`);
+  if (par.length) ch.push(par.join(' '));
+  if (c.storage !== cfg.storage) ch.push(STORAGE[c.storage].name.replace(/^.*· /, ''));
+  if (c.net !== cfg.net) ch.push(NETWORKS[c.net].short);
+  if (c.ckptMin !== cfg.ckptMin) ch.push(`存盘 ${c.ckptMin} 分钟`);
+  if (c.spares !== cfg.spares) ch.push(`备机 ${c.spares} 台`);
+  return `换成 ${ch.join('、')}：${t.ev.etaDays.toFixed(1)} 天交付，花 ${fmtMoney(t.ev.estCost)}。`;
 }
 
 function renderForecast(sc) {
@@ -185,6 +249,8 @@ function renderForecast(sc) {
   $('fcStep').style.gap = '10px';
 
   const notes = [...e.errors.map((x) => `<li class="err">${x}</li>`), ...e.warnings.map((x) => `<li>${x}</li>`)];
+  const tip = hardwareTip(sc, e);
+  if (tip) notes.unshift(`<li>${tip}<button type="button" class="tipbtn" id="applyTip">照这个改</button></li>`);
   const slowEvery = e.ok ? 1 / (cfg.gpus / (e.gpu.mtbf * 4)) : Infinity;
   if (slowEvery < 30) notes.push(`<li>平均 ${slowEvery.toFixed(0)} 小时就有一台降频。手动换不过来的话，开跑后在底栏打开“降频自动换下”。</li>`);
   $('notes').innerHTML = notes.length ? notes.join('') : '<li>配置没问题，开跑吧。</li>';
@@ -192,7 +258,7 @@ function renderForecast(sc) {
   $('startBtn').disabled = !e.ok;
   $('cancelBtn').hidden = !reconfig;
   $('startTitle').textContent = reconfig ? '按新配置重启' : '开始训练';
-  $('startSub').textContent = reconfig && g ? `从 ${fmtTok(g.ckptTokens)} token 的存盘重启` : `提交到${HALL} · ${fmtInt(cfg.gpus)} × ${cfg.gpu}`;
+  $('startSub').textContent = reconfig && g ? `从 ${fmtTok(g.ckptTokens)} token 的存盘重启` : `提交到${HALL} · ${fmtInt(cfg.gpus)} × ${gpuName(cfg.gpu)}`;
 }
 
 function layoutPreview() {
@@ -222,7 +288,7 @@ function newGame() {
 }
 
 const stepOf = (tok) => fmtInt(tok / ev.tokensPerStep);
-const jobDesc = (c) => `${fmtInt(c.gpus)} × ${c.gpu} · TP${c.tp} PP${c.pp} DP${ev.dp}${ev.model.moe ? ' EP' + c.ep : ''}`;
+const jobDesc = (c) => `${fmtInt(c.gpus)} × ${gpuName(c.gpu)} · ${precLabel(c.precision)} · TP${c.tp} PP${c.pp} DP${ev.dp}${ev.model.moe ? ' EP' + c.ep : ''}`;
 function setBusy(phase, sec) { g.phase = phase; g.busyLeft = sec; g.busyTotal = sec; }
 
 function log(kind, ico, title, sub = '') {
@@ -384,7 +450,7 @@ function rollEvents() {
     }
     return;
   }
-  if (g.phase === 'run' && !g.spikeWatch && !g.event && rnd() < SPIKE_PER_HOUR / 60) return lossSpike();
+  if (g.phase === 'run' && !g.spikeWatch && !g.event && rnd() < ev.spikePerHour / 60) return lossSpike();
 
   if (g.spikeWatch && g.t >= g.spikeWatch.until) {
     if (g.spikeWatch.diverge) {
@@ -928,7 +994,7 @@ function showResult() {
       <div class="crit"><span class="small muted">评级</span>${tick(win, '按期交付')}${tick(smooth, `Goodput ${pct(goodput)}，${smooth ? '过了' : '没到'} 85%`)}${tick(cheap, `花了 ${pct(costFrac)} 的预算，${cheap ? '压在' : '没压到'} ${COST_S * 100}%${cheap ? ' 以内' : ''}`)}</div>
     </div>
     <div style="margin-top: 22px; padding: 12px 14px; border-radius: 12px; background: var(--fill); font-size: 13px; line-height: 1.6">${hint}</div>
-    <div class="mono small muted" style="margin-top: 22px; line-height: 1.7">${g.cfg.gpu} × ${fmtInt(g.cfg.gpus)} · TP${g.cfg.tp} PP${g.cfg.pp} DP${ev.dp}${ev.model.moe ? ' EP' + g.cfg.ep : ''}<br>存盘 ${g.cfg.ckptMin} 分钟 · 备机 ${g.cfg.spares} 台 · ${NETWORKS[g.cfg.net].name}</div>
+    <div class="mono small muted" style="margin-top: 22px; line-height: 1.7">${gpuName(g.cfg.gpu)} × ${fmtInt(g.cfg.gpus)} · ${precLabel(g.cfg.precision)} · TP${g.cfg.tp} PP${g.cfg.pp} DP${ev.dp}${ev.model.moe ? ' EP' + g.cfg.ep : ''}<br>存盘 ${g.cfg.ckptMin} 分钟 · 备机 ${g.cfg.spares} 台 · ${NETWORKS[g.cfg.net].name}</div>
     <div style="flex: 1; min-height: 24px"></div>
     <div style="display: flex; flex-direction: column; gap: 10px">
       <button type="button" class="btn primary" style="height: 52px; justify-content: center; font-size: 16px; border-radius: 14px" id="againBtn">再来一局</button>
@@ -1050,7 +1116,18 @@ window.addEventListener('resize', () => {
 });
 
 // 页面热更新时保留这一局
-window.claude?.hot?.snapshot?.(() => ({ g, scIdx, cfg, speedIdx, reconfig, serve: serveSnapshot() }));
+window.claude?.hot?.snapshot?.(() => ({ g, scIdx, scId: SCENARIOS[scIdx].id, cfg, speedIdx, reconfig, serve: serveSnapshot() }));
+
+// 旧版本存下来的配置：任务按 id 对，卡和精度对不上的换成任务默认的
+function restoreCfg(data) {
+  const i = SCENARIOS.findIndex((s) => s.id === data.scId);
+  if (i < 0 || !data.cfg) return false;
+  const d = SCENARIOS[i].defaults, c = { ...d, ...data.cfg };
+  if (!GPUS[c.gpu] || !NETWORKS[c.net]) Object.assign(c, { gpu: d.gpu, net: d.net });
+  if (!TRAIN_PRECISION[c.precision] || !precOk(GPUS[c.gpu], c.precision)) c.precision = fitPrec(c.gpu, 'bf16');
+  scIdx = i; cfg = c;
+  return true;
+}
 
 // 从推理部署切回训练：回到开局页
 registerMode('train', () => { if (g && !g.over) showSetup(true); else { g = null; showSetup(false); } });
@@ -1058,16 +1135,18 @@ registerMode('train', () => { if (g && !g.over) showSetup(true); else { g = null
 function boot(data) {
   buildSetup(); buildOps();
   if (serveBoot(data?.serve)) {
-    if (data?.cfg && SCENARIOS[data.scIdx]) { scIdx = data.scIdx; cfg = data.cfg; }
-  } else if (data && data.g && data.g.nodes && data.g.recent) {
-    ({ g, scIdx, cfg, speedIdx } = data);
+    if (data) restoreCfg(data);
+  } else if (data && data.g && data.g.nodes && data.g.recent && restoreCfg(data) && data.g.scIdx === data.scIdx) {
+    ({ g, speedIdx } = data);
+    g.scIdx = scIdx;
+    g.cfg = { ...cfg, ...g.cfg, precision: g.cfg.precision || 'bf16' };
     ev = evaluate(g.cfg, SCENARIOS[g.scIdx]);
     L = hallLayout(g.cfg.gpus);
     if (g.over) { view.setLayout(L, { title: HALL, sub: '' }); showResult(); }
     else if (data.reconfig) showSetup(true);
     else showOps();
   } else {
-    if (data && data.cfg && SCENARIOS[data.scIdx]) { scIdx = data.scIdx; cfg = data.cfg; }
+    if (data) restoreCfg(data);
     showOnly('setup');
     syncSetup(true);
   }

@@ -9,6 +9,7 @@ import {
 } from './serve.js';
 import { HallView, hallLayout, rackName, NODES_PER_RACK } from './scene.js';
 import { $, icon, fillIcons, fmtInt, fmtMoney, pad2, segment, stepper, showOnly, registerMode } from './ui.js';
+import { gpuPicker, gpuMatches } from './picker.js';
 
 const HALL = '推理大厅 B';
 const SPEEDS = [1, 10, 60];                 // 每真实秒推进的模拟分钟
@@ -61,7 +62,8 @@ let speedIdx = 1;
 let selected = null, hover = null;
 let hfMsg = null;           // 读取 Hugging Face 的结果提示
 let pasting = false;
-let gpuOpen = false;        // 部署方案里换卡的列表开着没有
+let picker = null;          // 部署方案里换卡的列表
+let fitQuery = '';          // “用什么卡”里搜的字
 const view = new HallView($('sScene'));
 let L = null;
 const sc = () => SERVE_SCENARIOS.find((s) => s.id === scId);
@@ -240,9 +242,9 @@ function renderFit() {
   $('fitChips').innerHTML = `<span>权重 ${bytesLabel(weightBytes(m, prec))}</span><span>上下文 ${ctxLabel(m.maxCtx)}</span><span>${precLabel(m)}</span>`;
   const okCount = (v) => rows.filter((r) => r.best && (v === '全部' || r.G.vendor === v)).length;
   $('fitVendors').innerHTML = ['全部', ...VENDORS].map((v) => `<button type="button" data-v="${v}" aria-pressed="${fitVendor === v}">${v}<span class="c">${okCount(v)}</span></button>`).join('');
-  const mine = (r) => fitVendor === '全部' || r.G.vendor === fitVendor;
+  const mine = (r) => (fitVendor === '全部' || r.G.vendor === fitVendor) && gpuMatches(r.G, fitQuery);
   const ok = rows.filter((r) => r.best && mine(r)), no = rows.filter((r) => !r.best && mine(r));
-  const open = fitAll || fitVendor !== '全部';
+  const open = fitAll || fitVendor !== '全部' || !!fitQuery;
   const shown = open ? ok.slice() : ok.slice(0, FIT_TOP);
   if (fitPick && !shown.some((r) => r.id === fitPick.gpu)) { const r = ok.find((x) => x.id === fitPick.gpu); if (r) shown.push(r); }
   const bestId = rows[0] && rows[0].best ? rows[0].id : null;
@@ -256,10 +258,11 @@ function renderFit() {
     if (sel && r.byCards.length > 1) s += `<div class="fcards" role="group" aria-label="${r.G.name} 每个副本几张卡">${r.byCards.map((x) => `<button type="button" data-gpu="${r.id}" data-c="${x.gpus}" aria-pressed="${x.gpus === b.gpus}" title="${fmtReq(x.perf.rMax)} 请求/秒，并发 ${x.maxBatch}">${x.gpus} 卡 · ${fmtPerM(x.perf.costPerMOut)}</button>`).join('')}</div>`;
     return s;
   }).join('');
+  if (!ok.length && !no.length) html += `<div class="lib-empty">没有对得上“${esc(fitQuery)}”的卡</div>`;
   if (open || !ok.length) html += no.map((r) => `<div class="frow no"><span class="rk">–</span><span class="g"><b><span>${r.G.name}</span></b><span>${r.G.vendor} · ${r.G.hbm} GB</span></span><span class="why">${esc(whyNot(r.id))}</span></div>`).join('');
   const hidden = ok.length - shown.length;
   if (!open && (hidden > 0 || no.length)) html += `<button type="button" class="fmore" id="fitMore">${hidden > 0 ? `还有 ${hidden} 种卡放得下` : ''}${hidden > 0 && no.length ? '，' : ''}${no.length ? `${no.length} 种放不下` : ''}</button>`;
-  else if (fitAll && fitVendor === '全部') html += '<button type="button" class="fmore" id="fitLess">收起</button>';
+  else if (fitAll && fitVendor === '全部' && !fitQuery) html += '<button type="button" class="fmore" id="fitLess">收起</button>';
   $('fitList').innerHTML = html;
   $('fitFoot').textContent = `请求/秒是一个副本在 SLO 内能扛的量（聊天请求：输入 ${fmtInt(CHAT.inTok)}、输出 ${CHAT.outTok} token；首 token p99 ≤ ${CHAT.ttftSlo} 秒，每 token p99 ≤ ${Math.round(CHAT.tpotSlo * 1000)} ms）；$/M 是按 75% 负载跑时每百万输出 token 的成本。每种卡都挑好了最省的卡数和并发。`;
   // 说明：最省的那种为什么省；再挑一个放不下的说一句
@@ -345,6 +348,7 @@ function buildModel() {
   $('libList').onclick = (e) => { const b = e.target.closest('.mrow'); if (b) selectModel(+b.dataset.i); };
   $('hfForm').onsubmit = (e) => { e.preventDefault(); readHf($('hfRepo').value); };
   $('fitVendors').onclick = (e) => { const b = e.target.closest('button'); if (b) { fitVendor = b.dataset.v; renderFit(); } };
+  $('fitSearch').oninput = () => { fitQuery = $('fitSearch').value.trim(); renderFit(); };
   $('fitList').onclick = (e) => {
     if (e.target.closest('#fitMore')) { fitAll = true; renderFit(); return; }
     if (e.target.closest('#fitLess')) { fitAll = false; renderFit(); return; }
@@ -400,7 +404,7 @@ function rescale() {
 
 function openPlan(fresh, isReconf = false) {
   reconf = isReconf;
-  gpuOpen = false;
+  picker?.close();
   if (isReconf) { plan = { ...sv.plan }; scId = sv.sc.id; sv.paused = true; }
   else if (fresh || !plan) {
     plan = basePlan(fitPick.gpu, fitPick.gpus, defaultPrecision(model), fitPick.maxBatch);
@@ -467,8 +471,7 @@ function syncPlan() {
   $('sGpuBtn').innerHTML = `<span style="min-width: 0"><span class="nm">${G.name}<span class="small muted">${G.vendor}</span></span>
       <span class="sub">${G.hbm} GB · ${G.bw} TB/s · ${fmtPrice(G.price)}/卡时${G.stock ? ` · 大厅里只有 ${G.stock} 张` : ''}${G.note ? ` · ${G.note}` : ''}</span></span>
     <span class="chev">换卡${icon('chev', 14, 2.2)}</span>`;
-  $('sGpuBtn').setAttribute('aria-expanded', String(gpuOpen));
-  renderGpuPop();
+  picker?.refresh();
   const cards = cardOptions(plan.gpu).filter((c) => fits(plan.gpu, c, plan.precision));
   if (!cards.includes(plan.gpus)) cards.push(plan.gpus), cards.sort((a, b) => a - b);
   stepper($('sStCards'), '每个副本的卡数', cards, () => plan.gpus, (v) => { plan.gpus = v; rescale(); syncPlan(); });
@@ -513,21 +516,17 @@ function syncPlan() {
   $('sCancelBtn').hidden = !reconf;
 }
 
-// 换卡的列表：按厂商分组，每种卡写上最少几张、这个任务上最省能到每百万 token 多少钱
-function renderGpuPop() {
-  const pop = $('sGpuPop');
-  pop.hidden = !gpuOpen;
-  if (!gpuOpen) return;
+// 换卡的列表：每种卡写上最少几张、这个任务上最省能到每百万 token 多少钱
+function gpuItems() {
   const s = sc(), info = GPU_IDS.map((id) => ({ id, G: SERVE_GPUS[id], b: bestReplica(model, s.work, perfOf, plan.precision, [id]), min: cardOptions(id).find((c) => fits(id, c, plan.precision)) }));
   const best = info.filter((x) => x.b).sort((a, b) => a.b.perf.costPerMOut - b.b.perf.costPerMOut)[0];
-  const item = (x) => `<button type="button" class="gp-item" role="option" data-v="${x.id}" aria-selected="${x.id === plan.gpu}"${x.b ? '' : ' disabled'} title="${esc(x.G.note || x.G.name)}">
-      <span style="min-width: 0"><span class="nm">${x.G.name}${best && x.id === best.id ? '<span class="best">最省</span>' : ''}</span><span class="a">${x.G.hbm} GB · ${x.G.bw} TB/s · ${fmtPrice(x.G.price)}/卡时${x.G.stock ? ` · 只有 ${x.G.stock} 张` : ''}</span></span>
-      <span class="r">${x.b ? `${x.min ?? x.b.plan.gpus} 卡起<span class="a">最省 ${fmtPerM(x.b.perf.costPerMOut)}/M</span>` : `<span class="${x.id === plan.gpu ? '' : 't-bad'}">放不下</span>`}</span></button>`;
-  const group = (vs) => `<div class="gp-col">${vs.map((v) => `<div class="label">${v}</div>${info.filter((x) => x.G.vendor === v).map(item).join('')}`).join('')}</div>`;
-  pop.innerHTML = group(['NVIDIA']) + group(VENDORS.filter((v) => v !== 'NVIDIA'));
+  return info.map((x) => ({
+    id: x.id, badge: best && x.id === best.id ? '最省' : '', disabled: !x.b,
+    sub: `${x.G.hbm} GB · ${x.G.bw} TB/s · ${fmtPrice(x.G.price)}/卡时${x.G.stock ? ` · 只有 ${x.G.stock} 张` : ''}`,
+    right: x.b ? `${x.min ?? x.b.plan.gpus} 卡起<span class="a">最省 ${fmtPerM(x.b.perf.costPerMOut)}/M</span>` : `<span class="${x.id === plan.gpu ? '' : 't-bad'}">放不下</span>`,
+  }));
 }
 function pickGpu(id) {
-  gpuOpen = false;
   if (id !== plan.gpu) {
     // 换了卡就照这种卡最省的卡数和并发来，玩家再自己调
     const b = bestReplica(model, sc().work, perfOf, plan.precision, [id]) || bestReplica(model, sc().work, perfOf, defaultPrecision(model), [id]);
@@ -536,7 +535,6 @@ function pickGpu(id) {
     rescale();
   }
   syncPlan();
-  $('sGpuBtn').focus({ preventScroll: true });
 }
 
 function batchInfo() {
@@ -769,14 +767,7 @@ function buildPlan() {
     if (!perfOf(model, plan, sc().work).ok) plan = bestPlan();
     syncPlan();
   };
-  $('sGpuBtn').onclick = () => { if (reconf) return; gpuOpen = !gpuOpen; $('sGpuBtn').setAttribute('aria-expanded', String(gpuOpen)); renderGpuPop(); };
-  $('sGpuPop').onclick = (e) => { const b = e.target.closest('.gp-item'); if (b && !b.disabled) pickGpu(b.dataset.v); };
-  document.addEventListener('mousedown', (e) => {
-    if (gpuOpen && !e.target.closest('#sGpuPick')) { gpuOpen = false; $('sGpuBtn').setAttribute('aria-expanded', 'false'); renderGpuPop(); }
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && gpuOpen) { gpuOpen = false; $('sGpuBtn').setAttribute('aria-expanded', 'false'); renderGpuPop(); $('sGpuBtn').focus({ preventScroll: true }); }
-  });
+  picker = gpuPicker({ wrap: $('sGpuPick'), btn: $('sGpuBtn'), pop: $('sGpuPop'), value: () => plan.gpu, items: gpuItems, onPick: pickGpu, locked: () => reconf });
   $('sSwKv').onclick = () => { if (reconf) return; plan.kvFp8 = !plan.kvFp8; rescale(); syncPlan(); };
   $('sSwMtp').onclick = () => { if (reconf) return; plan.mtp = !plan.mtp; rescale(); syncPlan(); };
   $('sStartBtn').onclick = () => { if ($('sStartBtn').disabled) return; reconf ? applyReconf() : startDay(); };

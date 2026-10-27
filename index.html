@@ -124,6 +124,7 @@ kbd { font-family: var(--f-mono); font-size: 11px; line-height: 1; padding: 3px 
 .field-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; min-height: 20px; font-size: 13px; }
 .field-head > span:first-child { font-weight: 500; }
 .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .par { display: grid; grid-template-columns: minmax(0, 1fr) 236px; gap: 24px; align-items: start; }
 .prow { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 42px; border-bottom: 1px solid #f0f2f4; }
 .prow:last-child { border-bottom: 0; }
@@ -457,6 +458,11 @@ kbd { font-family: var(--f-mono); font-size: 11px; line-height: 1; padding: 3px 
 #sPlan .fc { gap: 12px; }
 #sPlan .notes { gap: 4px; }
 .locked .tile, .locked .seg, .locked .switch, .locked .stepper, .locked .gp-btn { pointer-events: none; opacity: 0.55; }
+.tipbtn { margin-left: 6px; height: 26px; padding: 0 10px; border: 0; border-radius: 8px; background: var(--ink); color: #fff; font-size: 12px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+.tipbtn:hover { background: #2a3038; }
+.fsearch { display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; border-radius: 10px; background: var(--chip); color: var(--ink-2); }
+.fsearch:focus-within { box-shadow: inset 0 0 0 2px var(--ink); }
+.fsearch input { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; font: inherit; font-size: 13px; color: var(--ink); outline: none; }
 .gpu-pick { position: relative; }
 .gp-btn { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 12px; padding: 9px 14px; border: 2px solid var(--ink); border-radius: 12px; background: var(--card); text-align: left; cursor: pointer; }
 .gp-btn .nm { display: flex; align-items: baseline; gap: 8px; font-size: 16px; font-weight: 700; line-height: 1.35; }
@@ -464,7 +470,14 @@ kbd { font-family: var(--f-mono); font-size: 11px; line-height: 1; padding: 3px 
 .gp-btn .sub { display: block; font-size: 12px; color: var(--ink-2); }
 .gp-btn .chev { display: flex; align-items: center; gap: 4px; height: 30px; padding: 0 10px; border-radius: 8px; background: var(--chip); font-size: 12px; font-weight: 500; white-space: nowrap; }
 .gp-btn:hover .chev, .gp-btn[aria-expanded="true"] .chev { background: var(--ink); color: #fff; }
-.gp-pop { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 30; padding: 10px; background: var(--card); border-radius: 14px; box-shadow: var(--shadow-pop); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; max-height: 470px; overflow: auto; }
+.gp-pop { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 30; padding: 10px; background: var(--card); border-radius: 14px; box-shadow: var(--shadow-pop); display: flex; flex-direction: column; gap: 6px; max-height: 500px; }
+.gp-search { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border-radius: 10px; background: var(--chip); color: var(--ink-2); flex: none; }
+.gp-search:focus-within { box-shadow: inset 0 0 0 2px var(--ink); }
+.gp-search input { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; font: inherit; font-size: 13px; color: var(--ink); outline: none; }
+.gp-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; overflow: auto; min-height: 0; }
+.gp-list.flat { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; }
+.gp-list.flat > .label { grid-column: 1 / -1; padding: 6px 8px 3px; }
+.gp-empty { grid-column: 1 / -1; padding: 18px 8px; font-size: 13px; color: var(--ink-2); text-align: center; }
 .gp-col { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .gp-col .label { padding: 8px 8px 3px; }
 .gp-item { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 8px; padding: 5px 8px; border: 0; border-radius: 9px; background: transparent; text-align: left; cursor: pointer; }
@@ -525,7 +538,8 @@ kbd { font-family: var(--f-mono); font-size: 11px; line-height: 1; padding: 3px 
   .frow .rk { display: none; }
   .frow.no { grid-template-columns: minmax(0, 1fr) auto; }
   .fcards { padding-left: 4px; }
-  .gp-pop { grid-template-columns: minmax(0, 1fr); }
+  .gp-list, .gp-list.flat { grid-template-columns: minmax(0, 1fr); }
+  .grid3 { grid-template-columns: minmax(0, 1fr); }
   .sw-row { flex-wrap: wrap; }
 }
 @media (max-width: 860px) {
@@ -561,12 +575,16 @@ kbd { font-family: var(--f-mono); font-size: 11px; line-height: 1; padding: 3px 
         <div class="config-head"><h2>集群配置</h2><span class="mono small muted" id="cfgSummary"></span></div>
         <section class="sec">
           <div class="label">硬件</div>
-          <div class="tiles2" id="gpuTiles"></div>
+          <div class="gpu-pick" id="tGpuPick">
+            <button type="button" class="gp-btn" id="tGpuBtn" aria-haspopup="listbox" aria-expanded="false"></button>
+            <div class="gp-pop" id="tGpuPop" role="listbox" aria-label="换卡" hidden></div>
+          </div>
           <div class="field">
             <div class="field-head"><span>卡数</span><span class="muted" id="gpusInfo"></span></div>
             <div class="seg" id="segGpus" role="group" aria-label="卡数"></div>
           </div>
-          <div class="grid2">
+          <div class="grid3">
+            <div class="field"><div class="field-head"><span>训练精度</span><span class="small muted" id="precInfo"></span></div><div class="seg" id="segPrec" role="group" aria-label="训练精度"></div></div>
             <div class="field"><div class="field-head"><span>机间网络</span><span class="small muted" id="netInfo"></span></div><div class="seg" id="segNet" role="group" aria-label="机间网络"></div></div>
             <div class="field"><div class="field-head"><span>存盘存储</span><span class="small muted" id="stoInfo"></span></div><div class="seg" id="segSto" role="group" aria-label="存盘存储"></div></div>
           </div>
@@ -576,7 +594,7 @@ kbd { font-family: var(--f-mono); font-size: 11px; line-height: 1; padding: 3px 
           <div class="label">并行切分</div>
           <div class="par">
             <div>
-              <div class="prow"><div><div class="t">张量并行 TP</div><div class="small muted">机内走 NVLink，最多 8</div></div><div class="stepper" id="stTp"></div></div>
+              <div class="prow"><div><div class="t">张量并行 TP</div><div class="small muted" id="tpInfo">机内走 NVLink，最多 8</div></div><div class="stepper" id="stTp"></div></div>
               <div class="prow"><div><div class="t">流水线并行 PP</div><div class="small muted" id="ppInfo"></div></div><div class="stepper" id="stPp"></div></div>
               <div class="prow" id="epRow"><div><div class="t">专家并行 EP</div><div class="small muted" id="epInfo"></div></div><div class="stepper" id="stEp"></div></div>
               <div class="prow"><div><div class="t">数据并行 DP</div><div class="small muted" id="dpInfo"></div></div><span class="readout" id="dpOut"></span></div>
@@ -718,6 +736,7 @@ kbd { font-family: var(--f-mono); font-size: 11px; line-height: 1; padding: 3px 
         <div class="card fit">
           <div class="fc-head" style="align-items: baseline"><h2>用什么卡</h2><span class="small muted" id="fitSub"></span></div>
           <div class="fit-chips" id="fitChips"></div>
+          <label class="fsearch"><span data-icon="search"></span><input type="search" id="fitSearch" placeholder="搜卡名、厂商、显存，比如 NVL72、HBM4、昇腾" aria-label="搜索加速卡" autocomplete="off" spellcheck="false"></label>
           <div class="vend" id="fitVendors" role="group" aria-label="按厂商看"></div>
           <div class="flist" id="fitList"></div>
           <p class="small muted" style="line-height: 1.6" id="fitFoot"></p>
