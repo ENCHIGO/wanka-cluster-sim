@@ -355,10 +355,16 @@ function drawStatic(ctx, L, labels, k) {
   poly(ctx, [P(dx0, 0, 31), P(dx1, 0, 31), P(dx1, 0, 0), P(dx0, 0, 0)], '#d3dae1');
   line(ctx, P(doorC, 0, 31), P(doorC, 0, 0), 'rgba(80,92,106,0.35)', 1);
   poly(ctx, [P(dx0 + 0.35, 0, 38), P(dx1 - 0.35, 0, 38), P(dx1 - 0.35, 0, 34), P(dx0 + 0.35, 0, 34)], '#16a05c');
+  // 墙上的字从 x=2.6 写到门左边为止，小机房放不下就缩小字号
+  const room = (dx0 - 0.6 - 2.6) * HW;
   const wallText = (txt, x, z, size, weight) => {
     const [sx, sy] = P(x, 0, z);
     ctx.save(); ctx.translate(sx, sy); ctx.transform(1, 0.5, 0, 1, 0, 0);
-    ctx.font = `${weight} ${size}px "Noto Sans SC", "PingFang SC", sans-serif`; ctx.fillStyle = C.wallText;
+    const font = (px) => `${weight} ${px}px "Noto Sans SC", "PingFang SC", sans-serif`;
+    ctx.font = font(size);
+    const w = ctx.measureText(txt).width;
+    if (w > room) ctx.font = font(Math.max(5, size * room / w));
+    ctx.fillStyle = C.wallText;
     ctx.fillText(txt, 0, 0); ctx.restore();
   };
   wallText(labels.title || '', 2.6, 22, 15, 900);

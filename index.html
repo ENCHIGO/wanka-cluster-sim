@@ -411,18 +411,33 @@ kbd { font-family: var(--f-mono); font-size: 11px; line-height: 1; padding: 3px 
 .fit { padding: 18px 22px; display: flex; flex-direction: column; gap: 12px; }
 .fit-chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .fit-chips span { font-size: 12px; font-weight: 500; padding: 1px 8px; border-radius: 999px; background: var(--chip); }
-.fit-grid { display: grid; gap: 8px; align-items: stretch; }
-.fit-grid .gh { font-size: 12px; font-weight: 500; color: var(--ink-2); align-self: end; }
-.fit-grid .gl { display: flex; flex-direction: column; justify-content: center; }
-.fcell { min-width: 0; padding: 10px 12px; border: 0; border-radius: 12px; background: var(--fill); text-align: left; display: flex; flex-direction: column; gap: 1px; cursor: pointer; }
-.fcell:hover:not(.no):not([aria-pressed="true"]) { box-shadow: inset 0 0 0 1px #c9d0d7; }
-.fcell.no { background: var(--bad-bg); cursor: default; }
-.fcell[aria-pressed="true"] { background: #fff; box-shadow: inset 0 0 0 2px var(--ink); }
-.fcell .a { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; white-space: nowrap; }
-.fcell .b { font-size: 12px; color: var(--ink-2); }
-.fcell.no .a { color: var(--bad-ink); }
-.fcell .best { font-size: 11px; font-weight: 700; color: var(--ink); background: var(--yellow); padding: 0 6px; border-radius: 999px; }
-.fcell .us { display: none; }
+.vend { display: flex; flex-wrap: wrap; gap: 4px; }
+.vend button { height: 28px; padding: 0 10px; border: 0; border-radius: 999px; background: var(--chip); color: var(--ink-2); font-size: 12px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+.vend button:hover:not([aria-pressed="true"]) { color: var(--ink); background: #e8ebee; }
+.vend button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+.vend button .c { margin-left: 4px; font-family: var(--f-mono); opacity: 0.6; }
+.flist { display: flex; flex-direction: column; gap: 4px; }
+.frow { width: 100%; min-width: 0; display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; column-gap: 10px; padding: 8px 12px 8px 10px; border: 0; border-radius: 12px; background: var(--fill); text-align: left; cursor: pointer; }
+.frow:hover:not([aria-pressed="true"]):not(.no) { box-shadow: inset 0 0 0 1px #c9d0d7; }
+.frow[aria-pressed="true"] { background: #fff; box-shadow: inset 0 0 0 2px var(--ink); }
+.frow .rk { font-family: var(--f-mono); font-size: 11px; color: var(--ink-2); }
+.frow .g { min-width: 0; display: flex; flex-direction: column; }
+.frow .g b { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 13px; line-height: 1.35; }
+.frow .g b > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.frow .g > span { font-size: 11px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.frow .v { display: flex; flex-direction: column; align-items: flex-end; white-space: nowrap; }
+.frow .v b { font-size: 14px; line-height: 1.35; }
+.frow .v > span { font-size: 11px; color: var(--ink-2); }
+.frow .u { font-size: 11px; font-weight: 400; color: var(--ink-2); }
+.best { flex: none; font-size: 11px; font-weight: 700; color: var(--ink); background: var(--yellow); padding: 0 6px; border-radius: 999px; line-height: 1.5; }
+.frow.no { cursor: default; background: transparent; grid-template-columns: 18px minmax(0, 1fr) auto; padding-top: 4px; padding-bottom: 4px; }
+.frow.no .why { font-size: 12px; font-weight: 500; color: var(--bad-ink); text-align: right; }
+.fcards { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 4px 6px 38px; }
+.fcards button { height: 26px; padding: 0 9px; border: 1px solid var(--line-2); border-radius: 8px; background: #fff; font-size: 12px; cursor: pointer; white-space: nowrap; }
+.fcards button:hover:not([aria-pressed="true"]) { border-color: #c9d0d7; }
+.fcards button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+.fmore { align-self: flex-start; height: 30px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: var(--info-ink); font-size: 12px; font-weight: 500; cursor: pointer; }
+.fmore:hover { background: var(--info-bg); }
 .fit-note { padding: 12px 14px; border-radius: 12px; background: var(--fill); font-size: 13px; line-height: 1.6; }
 
 /* ---------- 推理：部署方案 ---------- */
@@ -431,10 +446,6 @@ kbd { font-family: var(--f-mono); font-size: 11px; line-height: 1; padding: 3px 
 .chart-legend span { display: flex; align-items: center; gap: 6px; }
 .chart-legend i { display: block; }
 .traffic svg { display: block; width: 100%; height: auto; }
-.tiles4g { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-.tiles4g .tile { min-height: 60px; padding: 9px 13px; }
-.tiles4g .tile[aria-pressed="true"] { padding: 8px 12px; }
-.tiles4g .tile .tick { width: 18px; height: 18px; right: 10px; top: 10px; }
 .grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
 .grid4 .seg button { padding: 0 2px; }
 .work { padding: 14px 18px; display: flex; flex-direction: column; gap: 8px; }
@@ -445,7 +456,28 @@ kbd { font-family: var(--f-mono); font-size: 11px; line-height: 1; padding: 3px 
 #sPlan .col-forecast { gap: 14px; }
 #sPlan .fc { gap: 12px; }
 #sPlan .notes { gap: 4px; }
-.locked .tile, .locked .seg, .locked .switch { pointer-events: none; opacity: 0.55; }
+.locked .tile, .locked .seg, .locked .switch, .locked .stepper, .locked .gp-btn { pointer-events: none; opacity: 0.55; }
+.gpu-pick { position: relative; }
+.gp-btn { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 12px; padding: 9px 14px; border: 2px solid var(--ink); border-radius: 12px; background: var(--card); text-align: left; cursor: pointer; }
+.gp-btn .nm { display: flex; align-items: baseline; gap: 8px; font-size: 16px; font-weight: 700; line-height: 1.35; }
+.gp-btn .nm .small { font-weight: 500; }
+.gp-btn .sub { display: block; font-size: 12px; color: var(--ink-2); }
+.gp-btn .chev { display: flex; align-items: center; gap: 4px; height: 30px; padding: 0 10px; border-radius: 8px; background: var(--chip); font-size: 12px; font-weight: 500; white-space: nowrap; }
+.gp-btn:hover .chev, .gp-btn[aria-expanded="true"] .chev { background: var(--ink); color: #fff; }
+.gp-pop { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 30; padding: 10px; background: var(--card); border-radius: 14px; box-shadow: var(--shadow-pop); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; max-height: 470px; overflow: auto; }
+.gp-col { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.gp-col .label { padding: 8px 8px 3px; }
+.gp-item { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 8px; padding: 5px 8px; border: 0; border-radius: 9px; background: transparent; text-align: left; cursor: pointer; }
+.gp-item:hover:not(:disabled):not([aria-selected="true"]) { background: var(--fill); }
+.gp-item[aria-selected="true"] { background: var(--ink); color: #fff; }
+.gp-item:disabled { opacity: 0.5; cursor: not-allowed; }
+.gp-item .nm { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; line-height: 1.35; white-space: nowrap; }
+.gp-item .a { display: block; font-size: 11px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gp-item .r { text-align: right; font-size: 12px; font-weight: 500; white-space: nowrap; }
+.gp-item[aria-selected="true"] .a { color: rgba(255,255,255,0.72); }
+.sw-row { display: flex; align-items: center; gap: 10px; min-height: 36px; font-size: 13px; }
+.sw-row .t { font-weight: 500; white-space: nowrap; }
+.sw-row .small { margin-left: auto; text-align: right; line-height: 1.4; }
 .lat svg { display: block; width: 100%; height: auto; }
 
 /* ---------- 推理：值班 ---------- */
@@ -483,17 +515,18 @@ kbd { font-family: var(--f-mono); font-size: 11px; line-height: 1; padding: 3px 
   .kv-grid { grid-template-columns: minmax(0, 1fr); }
   .kvcol .kv:last-child { border-bottom: 1px solid #f0f2f4; }
   .tiles3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .tiles4g { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .hf-pre { display: none; }
   .drop { flex-direction: column; align-items: stretch; }
   .drop .btns { flex-direction: row; }
   .drop .btns .btn { flex: 1; }
   .steps { display: none; }
   .fit { padding: 16px; }
-  .fit-grid { gap: 6px; }
-  .fcell { padding: 8px 9px; }
-  .fcell .u { display: none; }
-  .fcell .us { display: inline; }
+  .frow { grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; }
+  .frow .rk { display: none; }
+  .frow.no { grid-template-columns: minmax(0, 1fr) auto; }
+  .fcards { padding-left: 4px; }
+  .gp-pop { grid-template-columns: minmax(0, 1fr); }
+  .sw-row { flex-wrap: wrap; }
 }
 @media (max-width: 860px) {
   .sevent { position: relative; left: auto; bottom: auto; width: 100%; order: 2; }
@@ -683,9 +716,10 @@ kbd { font-family: var(--f-mono); font-size: 11px; line-height: 1; padding: 3px 
       </div>
       <div class="col-fit">
         <div class="card fit">
-          <div class="fc-head" style="align-items: baseline"><h2>放得下吗</h2><span class="small muted" id="fitSub"></span></div>
+          <div class="fc-head" style="align-items: baseline"><h2>用什么卡</h2><span class="small muted" id="fitSub"></span></div>
           <div class="fit-chips" id="fitChips"></div>
-          <div class="fit-grid" id="fitGrid"></div>
+          <div class="vend" id="fitVendors" role="group" aria-label="按厂商看"></div>
+          <div class="flist" id="fitList"></div>
           <p class="small muted" style="line-height: 1.6" id="fitFoot"></p>
           <div class="fit-note" id="fitNote"></div>
         </div>
@@ -724,12 +758,18 @@ kbd { font-family: var(--f-mono); font-size: 11px; line-height: 1; padding: 3px 
         <div class="divider"></div>
         <section class="sec" id="sReplicaSec">
           <div class="sec-head"><span class="label">每个副本</span><span class="small muted" id="sReplicaHint">一个副本放一整份权重，单独接请求</span></div>
-          <div class="tiles4g" id="sGpuTiles"></div>
+          <div class="gpu-pick" id="sGpuPick">
+            <button type="button" class="gp-btn" id="sGpuBtn" aria-haspopup="listbox" aria-expanded="false"></button>
+            <div class="gp-pop" id="sGpuPop" role="listbox" aria-label="换卡" hidden></div>
+          </div>
           <div class="grid2">
-            <div class="field"><div class="field-head"><span>每个副本几张卡</span><span class="small muted" id="sCardsInfo"></span></div><div class="seg" id="sSegCards" role="group" aria-label="每个副本几张卡"></div></div>
+            <div class="field"><div class="field-head"><span>每个副本几张卡</span><span class="small muted" id="sCardsInfo"></span></div><div class="stepper" id="sStCards" style="align-self: flex-start"></div></div>
             <div class="field"><div class="field-head"><span>权重精度</span><span class="small muted" id="sPrecInfo"></span></div><div class="seg" id="sSegPrec" role="group" aria-label="权重精度"></div></div>
-            <div class="field"><div class="field-head"><span>最大并发</span><span class="small muted">每副本同时解码几个请求</span></div><div class="seg" id="sSegBatch" role="group" aria-label="最大并发"></div><div class="small muted" id="sBatchInfo"></div></div>
-            <div class="field"><div class="field-head"><span>KV cache 存成 FP8</span></div><div style="display: flex; align-items: center; gap: 10px; min-height: 40px"><button class="switch" id="sSwKv" role="switch" aria-checked="true" aria-label="KV cache 存成 FP8"></button><span class="muted" id="sKvTxt">开</span></div><div class="small muted">同样的显存多存一倍上下文</div></div>
+            <div class="field"><div class="field-head"><span>最大并发</span><span class="small muted">每副本同时解码几个请求</span></div><div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap"><div class="stepper" id="sStBatch"></div><span class="small muted" id="sBatchInfo"></span></div></div>
+            <div class="field">
+              <div class="sw-row"><button class="switch" id="sSwKv" role="switch" aria-checked="true" aria-label="KV cache 存成 FP8"></button><span class="t">KV cache 存成 FP8</span><span class="small muted" id="sKvTxt"></span></div>
+              <div class="sw-row" id="sMtpRow"><button class="switch" id="sSwMtp" role="switch" aria-checked="true" aria-label="MTP 投机解码"></button><span class="t">MTP 投机解码</span><span class="small muted" id="sMtpTxt"></span></div>
+            </div>
           </div>
           <div class="field" id="sHbm"></div>
         </section>

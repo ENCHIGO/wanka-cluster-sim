@@ -30,6 +30,7 @@ export const STROKE = {
   timer: '<circle cx="12" cy="13" r="7.5"/><path d="M12 9.5V13l2.5 2M9.5 2.5h5"/>',
   filter: '<path d="M4 5h16l-6 7.5V19l-4 1.5v-8z"/>',
   down: '<path d="M3.5 6.5l5 6 4-3.5 7.5 9"/><path d="M15 18h5v-5"/>',
+  chev: '<path d="M6 9.5l6 6 6-6"/>',
 };
 export const FILL = {
   pause: '<rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/>',
