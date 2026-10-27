@@ -66,6 +66,8 @@ npm start          # 等价于 python3 -m http.server 8000
 npm test           # 性能模型、推理模型和机房排布的单元测试（Node 18+）
 ```
 
+在线版：<https://enchigo.github.io/wanka-cluster-sim/>。推到 main 以后，GitHub Actions（`.github/workflows/pages.yml`）先跑测试，过了再发布到 GitHub Pages。
+
 自己部署时，页面会直接从 `huggingface.co/<仓库>/resolve/main/config.json` 读配置；在 Claude 里打开时网页不能访问外部网站，只能粘贴。
 
 ## 代码结构
